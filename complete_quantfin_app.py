@@ -16,16 +16,11 @@ from plotly.subplots import make_subplots
 import yfinance as yf
 from scipy import stats
 from datetime import datetime, timedelta
-import requests
-import os
-import json
-import re
 import logging
 import hashlib
 import random
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from polygon import RESTClient
-from polygon.rest.models import TickerNews
 
 warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.INFO)
@@ -323,7 +318,7 @@ class MarketAnalyzer:
         try:
             test_data = yf.download("SPY", start=date, end=date, progress=False)
             return not test_data.empty
-        except:
+        except Exception:
             return False
 
 
@@ -442,7 +437,7 @@ class EventStudyAnalyzer:
                         avg_volume = pre_event['Volume'].tail(10).mean()
                         volume_spike = event_volume / avg_volume if avg_volume > 0 else 1
                         volume_change = ((event_volume - avg_volume) / avg_volume) * 100
-                except:
+                except Exception:
                     pass
             
             statistics = {
@@ -491,7 +486,7 @@ class EventStudyAnalyzer:
                 'rolling_volatility': rolling_vol
             }
             
-        except Exception as e:
+        except Exception:
             return {
                 'pre_event_volatility': 0,
                 'post_event_volatility': 0,
@@ -850,11 +845,10 @@ def main():
                                 st.success(f"Added: {name}")
                             else:
                                 st.error("Invalid ticker symbol")
-                        except:
+                        except Exception:
                             st.error("Invalid ticker symbol")
         
         # Asset selection interface
-        all_assets = {**sector_etfs, **default_assets, **st.session_state.custom_assets}
         
         # Category-based selection
         st.markdown("**Sector ETFs:**")

@@ -3,15 +3,11 @@ import pandas as pd
 import numpy as np
 import warnings
 import plotly.graph_objects as go
-import plotly.express as px
 from plotly.subplots import make_subplots
 import yfinance as yf
 from scipy import stats
 from datetime import datetime, timedelta
-import requests
 import os
-import json
-import re
 
 warnings.filterwarnings("ignore")
 
@@ -185,7 +181,7 @@ class EventStudyAnalyzer:
             
             # Debug output for S&P 500 validation
             if ticker in ['SPY', '^GSPC']:
-                print(f"\n=== S&P 500 DATA VALIDATION ===")
+                print("\n=== S&P 500 DATA VALIDATION ===")
                 print(f"Ticker: {ticker}")
                 print(f"Date range: {start_date} to {end_date}")
                 print(f"Data points: {len(data)}")
@@ -226,7 +222,7 @@ class EventStudyAnalyzer:
             # Use last 60 trading days for beta estimation (standard practice)
             if len(combined) >= 60:
                 estimation_data = combined.tail(60)
-                print(f"Using 60-day estimation window for beta calculation")
+                print("Using 60-day estimation window for beta calculation")
             else:
                 estimation_data = combined
                 print(f"Warning: Only {len(combined)} days available (need 60 for proper estimation)")
@@ -249,7 +245,7 @@ class EventStudyAnalyzer:
                 mask = (z_asset < 3) & (z_market < 3)
                 asset_excess = asset_excess[mask]
                 market_excess = market_excess[mask]
-            except:
+            except Exception:
                 pass
             
             if len(asset_excess) < 20:
@@ -321,7 +317,7 @@ class EventStudyAnalyzer:
             combined['Expected_Return'] = risk_free_rate_daily + beta * market_excess
             combined['Abnormal_Returns'] = combined['Asset_Return'] - combined['Expected_Return']
             
-            print(f"CAPM Calculation Debug:")
+            print("CAPM Calculation Debug:")
             print(f"- Asset: {asset_name}")
             print(f"- Beta used: {beta:.4f}")
             print(f"- Risk-free rate: {risk_free_rate_daily:.6f}")
@@ -354,7 +350,7 @@ class EventStudyAnalyzer:
             volume_analysis = {}
             if 'Volume' in asset_data.columns:
                 try:
-                    volume_event = asset_data.loc[asset_mask, 'Volume'].dropna()
+                    _ = asset_data.loc[asset_mask, 'Volume'].dropna()
                     pre_event_volume = asset_data.loc[
                         (asset_data.index >= event_start - pd.Timedelta(days=10)) & 
                         (asset_data.index < event_start), 'Volume'
@@ -389,7 +385,7 @@ class EventStudyAnalyzer:
                 p_value = 1
             
             # Enhanced validation output for S&P 500 event study
-            print(f"\n=== S&P 500 EVENT STUDY VALIDATION ===")
+            print("\n=== S&P 500 EVENT STUDY VALIDATION ===")
             print(f"Event Date: {event_date.strftime('%Y-%m-%d')}")
             print(f"Risk-free rate (daily): {risk_free_rate_daily:.6f} ({risk_free_rate_daily*252:.2%} annual)")
             print(f"Beta used: {beta:.4f}")
@@ -399,8 +395,8 @@ class EventStudyAnalyzer:
             print(f"Event Day Abnormal Return: {event_day_ar:.6f} ({event_day_ar*100:.4f}%)")
             print(f"CAR Total: {car_total:.6f} ({car_total*100:.4f}%)")
             print(f"Statistical Significance: p-value = {p_value:.4f}")
-            print(f"Data Source: Yahoo Finance with auto_adjust=True, Close prices")
-            print(f"CAMP Formula: AR = R_actual - [R_f + β(R_market - R_f)]")
+            print("Data Source: Yahoo Finance with auto_adjust=True, Close prices")
+            print("CAMP Formula: AR = R_actual - [R_f + β(R_market - R_f)]")
             print("=====================================\n")
             
             # Validation check for AR consistency
@@ -483,7 +479,6 @@ def create_abnormal_returns_chart(abnormal_data, asset_name, event_date):
     
     # Ensure we have the correct column names
     ar_column = 'Abnormal_Returns' if 'Abnormal_Returns' in abnormal_data.columns else 'Abnormal_Return'
-    car_column = 'Cumulative_AR' if 'Cumulative_AR' in abnormal_data.columns else 'CAR'
     
     if ar_column not in abnormal_data.columns:
         return None
@@ -848,7 +843,6 @@ def main():
                         for i, event in enumerate(events[:3], 1):
                             headline = event.get('headline', f'Market Event {i}')
                             impact = event.get('impact_level', 'High')
-                            category = event.get('category', 'Economic')
                             event_options.append(f"Event {i}: {headline} ({impact} Impact)")
                         
                         selected_event_index = st.selectbox(
@@ -874,7 +868,7 @@ def main():
                             with col3:
                                 st.metric("Time", selected_event.get('time', 'Market Hours'))
                             
-                            st.markdown(f"**Event Description:**")
+                            st.markdown("**Event Description:**")
                             st.info(selected_event.get('description', 'High-impact market event requiring analysis'))
                             
                             if selected_event.get('market_sectors'):
@@ -971,7 +965,7 @@ def main():
                         st.success(f"✅ Added: {company_name} ({custom_ticker.upper()})")
                     else:
                         st.error(f"❌ No data found for ticker: {custom_ticker.upper()}")
-                except Exception as e:
+                except Exception:
                     st.error(f"❌ Invalid ticker: {custom_ticker.upper()}")
         
         # Trade shock sector analysis ETFs
@@ -1179,7 +1173,6 @@ def main():
                 
                 # Volume analysis
                 vol_analysis = result['ar_statistics'].get('volume_analysis', {})
-                volume_change = vol_analysis.get('volume_change_pct', 0) if vol_analysis else 0
                 volume_spike = vol_analysis.get('volume_spike', 1) if vol_analysis else 1
                 
                 # Volatility analysis
@@ -1229,7 +1222,7 @@ def main():
                         return 'background-color: #fff3cd; color: #856404; font-weight: bold'
                     else:
                         return 'background-color: #f8d7da; color: #721c24'
-                except:
+                except Exception:
                     return ''
             
             styled_df = summary_df.style.applymap(highlight_significance, subset=['Statistical Result']) \
@@ -1358,7 +1351,7 @@ def main():
                             st.metric("P-Value", f"{ar_stats.get('p_value', 0):.4f}")
                         
                         st.markdown("**Key Findings:**")
-                        st.markdown(f"- Event Date: June 2, 2025")
+                        st.markdown("- Event Date: June 2, 2025")
                         st.markdown(f"- Market Reaction: {'Significant' if abs(ar_stats.get('event_day_ar', 0)) > 0.01 else 'Moderate' if abs(ar_stats.get('event_day_ar', 0)) > 0.005 else 'Minimal'}")
                         st.markdown(f"- Statistical Significance: {'Significant' if ar_stats.get('p_value', 1) < 0.05 else 'Not Significant'}")
                         st.markdown(f"- Market Efficiency: {'Efficient' if abs(ar_stats.get('event_day_ar', 0)) < 0.005 else 'Some inefficiency detected'}")

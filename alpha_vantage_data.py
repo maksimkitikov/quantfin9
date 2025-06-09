@@ -5,9 +5,7 @@ Fetches authentic market data using Alpha Vantage API
 
 import requests
 import pandas as pd
-import numpy as np
 from typing import Dict, Optional
-from datetime import datetime, timedelta
 import time
 
 
@@ -78,13 +76,13 @@ class AlphaVantageClient:
             df['Returns'] = df['Adj_Close'].pct_change()
             
             # Add validation prints
-            print(f"=== ALPHA VANTAGE DATA VALIDATION ===")
+            print("=== ALPHA VANTAGE DATA VALIDATION ===")
             print(f"Symbol: {symbol}")
             print(f"Date range: {df.index.min()} to {df.index.max()}")
             print(f"Data points: {len(df)}")
             print(f"Latest close: {df['Adj_Close'].iloc[-1]:.2f}")
             print(f"Latest return: {df['Returns'].iloc[-1]:.6f} ({df['Returns'].iloc[-1]*100:.4f}%)")
-            print(f"========================================")
+            print("========================================")
             
             return df
             
@@ -196,13 +194,13 @@ def enhance_event_study_with_alpha_vantage(asset_symbol: str, market_symbol: str
         'market_symbol': market_symbol
     }
     
-    print(f"=== ALPHA VANTAGE EVENT STUDY ===")
+    print("=== ALPHA VANTAGE EVENT STUDY ===")
     print(f"Asset: {asset_symbol}, Market: {market_symbol}")
     print(f"Event Date: {event_date}")
     print(f"Event Day AR: {event_day_ar:.6f} ({event_day_ar*100:.4f}%)")
     print(f"Event Day Actual: {event_day_actual:.6f} ({event_day_actual*100:.4f}%)")
     print(f"CAR Total: {results['ar_statistics']['car_total']:.6f}")
-    print(f"==================================")
+    print("==================================")
     
     return results
 

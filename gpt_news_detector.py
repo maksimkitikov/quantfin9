@@ -3,8 +3,7 @@ Real GPT-Powered News Detection System
 Uses OpenAI GPT-4o to detect and analyze top market/economy news for any given date
 """
 import json
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+from typing import List, Dict
 from openai import OpenAI
 
 class GPTNewsDetector:

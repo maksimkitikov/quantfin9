@@ -7,7 +7,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -149,7 +149,7 @@ class MarketAnalyzer:
             ticker = yf.Ticker('SPY')
             data = ticker.history(start=date, end=date)
             return not data.empty
-        except:
+        except Exception:
             return False
     
     def get_trading_days_around_event(self, event_date: str, days_before: int = 10, days_after: int = 5) -> Tuple[str, str]:

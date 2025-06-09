@@ -6,7 +6,7 @@ CAPM-based abnormal returns and statistical testing
 import pandas as pd
 import numpy as np
 from scipy import stats
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -201,9 +201,7 @@ class EventStudyAnalyzer:
             
             vol_change = (post_vol - pre_vol) / pre_vol if pre_vol > 0 else 0
             
-            # ARCH test (simplified)
-            squared_returns = returns ** 2
-            arch_lags = min(5, len(returns) // 10)
+            # ARCH-style measure (simplified)
             
             volatility_analysis = {
                 'pre_event_volatility': pre_vol,
@@ -242,7 +240,7 @@ class EventStudyAnalyzer:
         try:
             # Step 1: Estimate CAPM parameters
             estimation_end = event_date - pd.Timedelta(days=1)
-            alpha, beta, capm_diagnostics = self.estimate_camp_parameters(
+            alpha, beta, capm_diagnostics = self.estimate_capm_parameters(
                 asset_data, market_data, estimation_end
             )
             
@@ -267,7 +265,7 @@ class EventStudyAnalyzer:
                 'success': True,
                 'alpha': alpha,
                 'beta': beta,
-                'capm_diagnostics': camp_diagnostics,
+                'capm_diagnostics': capm_diagnostics,
                 'event_data': event_data,
                 'ar_statistics': ar_statistics,
                 'volatility_analysis': volatility_analysis
@@ -287,8 +285,8 @@ class EventStudyAnalyzer:
             diff = np.diff(residuals)
             dw = np.sum(diff ** 2) / np.sum(residuals ** 2)
             return dw
-        except:
-            return 2.0  # No autocorrelation
+        except Exception:
+            return 2.0  # Assume no autocorrelation on error
 
 def main():
     """Test event study analysis"""

@@ -5,8 +5,7 @@ Uses Alpha Vantage API and yfinance for comprehensive coverage
 """
 import requests
 import yfinance as yf
-import pandas as pd
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 import time
 
 class UniversalAssetSearch:
@@ -127,7 +126,7 @@ class UniversalAssetSearch:
                 # Avoid rate limiting
                 time.sleep(0.1)
                 
-            except Exception as e:
+            except Exception:
                 continue
                 
         return results

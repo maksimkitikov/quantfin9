@@ -6,7 +6,7 @@ Automatically generates AI-powered market interpretations for the dashboard
 import streamlit as st
 import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional
+from typing import Dict, List
 from openai_market_analyst import OpenAIMarketAnalyst
 
 
@@ -50,10 +50,10 @@ class AutoSummaryGenerator:
             ar_stats = analysis_results.get('ar_statistics', {})
             
             # Get time series data
-            ar_series = self._extract_ar_series(abnormal_data)
-            car_series = self._extract_car_series(abnormal_data)
-            volatility_series = self._extract_volatility_series(abnormal_data)
-            volume_series = self._extract_volume_series(abnormal_data)
+            _ = self._extract_ar_series(abnormal_data)
+            _ = self._extract_car_series(abnormal_data)
+            _ = self._extract_volatility_series(abnormal_data)
+            _ = self._extract_volume_series(abnormal_data)
             
             # Get exact values from ar_statistics to ensure consistency
             actual_return = ar_stats.get('event_day_actual', 0)
@@ -65,7 +65,7 @@ class AutoSummaryGenerator:
             if abnormal_data is not None and 'Rolling_Volatility' in abnormal_data.columns:
                 volatility_value = abnormal_data['Rolling_Volatility'].iloc[-1] if not abnormal_data.empty else 0
             
-            print(f"🧠 AI Summary Data Source Debug:")
+            print("🧠 AI Summary Data Source Debug:")
             print(f"- Actual Return: {actual_return:.6f} ({actual_return*100:.4f}%)")
             print(f"- Abnormal Return: {abnormal_return:.6f} ({abnormal_return*100:.4f}%)")
             print(f"- CAR Total: {car_total:.6f} ({car_total*100:.4f}%)")

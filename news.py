@@ -4,7 +4,6 @@ Fetches and processes financial news using Polygon.io
 """
 
 from polygon import RESTClient
-from polygon.rest.models import TickerNews
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 import logging
