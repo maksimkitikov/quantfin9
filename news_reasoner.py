@@ -3,9 +3,8 @@ News Reasoning Module
 Enhances AI market analysis with real-time news context and semantic matching
 """
 
-import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 import requests
 import os
 from datetime import datetime, timedelta
@@ -109,7 +108,7 @@ class NewsReasoner:
             start_date = event_dt - timedelta(days=lookback_days)
             
             # Polygon.io news endpoint
-            url = f"https://api.polygon.io/v2/reference/news"
+            url = "https://api.polygon.io/v2/reference/news"
             params = {
                 'apikey': self.polygon_api_key,
                 'published_utc.gte': start_date.strftime('%Y-%m-%d'),

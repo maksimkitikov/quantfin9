@@ -3,10 +3,8 @@ AI Market Event Interpreter Module
 Automatically interprets financial data visualizations and provides intelligent market analysis
 """
 
-import pandas as pd
 import numpy as np
-from typing import Dict, List, Optional, Tuple
-from datetime import datetime
+from typing import List, Optional
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -55,7 +53,6 @@ class MarketEventInterpreter:
         event_ar = ar_series[-1] if ar_series else 0
         event_car = car_series[-1] if car_series else 0
         vol_change = self._calculate_volatility_spike(volatility) if volatility else 0
-        volume_spike = self._calculate_volume_spike(volume) if volume else 0
         
         # Market behavior classification
         market_tone = self._classify_market_behavior(event_ar, event_car, vol_change, actual_return)
@@ -232,34 +229,19 @@ class MarketEventInterpreter:
         ar_pct = ar * 100
         car_pct = car * 100
         
-        # Market tone interpretation
-        tone_descriptions = {
-            "efficient_absorption": "efficiently absorbed the policy announcement",
-            "shock_response": "experienced significant shock and volatility",
-            "positive_surprise": "showed unexpected positive response",
-            "underperformed_expectations": "underperformed market expectations",
-            "sustained_reaction": "displayed sustained multi-day reaction",
-            "moderate_adjustment": "showed moderate price adjustment"
-        }
-        
-        tone_desc = tone_descriptions.get(market_tone, "showed mixed market response")
-        
+        # Market tone interpretation (unused placeholder removed)
         # Format causes
         causes_text = ""
         for i, cause in enumerate(economic_causes, 1):
             causes_text += f"{i}. {cause}\n"
         
         # Volatility description
-        vol_desc = ""
         if vol_spike > 40:
-            vol_desc = f"📈 Volatility Spike: +{vol_spike:.0f}% (High uncertainty)"
+            _ = f"📈 Volatility Spike: +{vol_spike:.0f}% (High uncertainty)"
         elif vol_spike > 20:
-            vol_desc = f"📈 Volatility Spike: +{vol_spike:.0f}% (Moderate uncertainty)"
+            _ = f"📈 Volatility Spike: +{vol_spike:.0f}% (Moderate uncertainty)"
         else:
-            vol_desc = f"📈 Volatility: +{vol_spike:.0f}% (Stable)"
-        
-        # Market direction forecast
-        direction_prediction = self._predict_market_direction(ar, car, vol_spike, asset)
+            _ = f"📈 Volatility: +{vol_spike:.0f}% (Stable)"
         
         interpretation = f"""
 🧠 **AI Market Intelligence Summary**

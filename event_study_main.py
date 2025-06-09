@@ -6,10 +6,10 @@ Orchestrates news detection, market analysis, and event study calculations
 import argparse
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 import pandas as pd
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 # Import our modules
 from news import NewsCollector

@@ -2,9 +2,8 @@
 Real AI Market Analyst Module
 Uses OpenAI GPT-4o to generate authentic market interpretations and forecasts
 """
-import os
 import json
-from typing import Dict, List, Optional
+from typing import Dict
 from openai import OpenAI
 
 class OpenAIMarketAnalyst:
@@ -126,7 +125,7 @@ Respond only with valid JSON in this format:
             if not isinstance(analysis["economic_causes"], list) or len(analysis["economic_causes"]) != 3:
                 raise ValueError("economic_causes must be a list of exactly 3 items")
                 
-            print(f"✅ OpenAI Analysis Generated Successfully")
+            print("✅ OpenAI Analysis Generated Successfully")
             print(f"   Model: {self.model}")
             print(f"   Asset: {asset_name}")
             print(f"   AR: {abnormal_return*100:+.3f}%")
@@ -147,13 +146,10 @@ Respond only with valid JSON in this format:
         # Market interpretation based on AR magnitude and direction
         if ar_magnitude < 0.005:  # < 0.5%
             reaction_type = "minimal reaction"
-            efficiency_note = "suggesting efficient market pricing"
         elif ar_magnitude < 0.01:  # 0.5-1%
             reaction_type = "moderate reaction" if abnormal_return < 0 else "positive response"
-            efficiency_note = "indicating measured market adjustment"
         else:  # > 1%
             reaction_type = "significant reaction" if abnormal_return < 0 else "strong positive response"
-            efficiency_note = "suggesting substantial information content"
         
         # Generate interpretation
         interpretation = f"On June 2, 2025, the {asset_name} registered a {reaction_type} with an abnormal return of {abnormal_return*100:+.3f}% in response to geopolitical developments. "
