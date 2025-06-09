@@ -1,0 +1,1450 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import warnings
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+import yfinance as yf
+from scipy import stats
+from datetime import datetime, timedelta
+
+warnings.filterwarnings("ignore")
+
+# Configure page
+st.set_page_config(
+    page_title="Quantitative Event Study Analysis",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Professional CSS styling
+st.markdown("""
+<style>
+.main-header {
+    font-size: 2.8rem;
+    color: #1f77b4;
+    text-align: center;
+    margin-bottom: 2rem;
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+.jp-morgan-header {
+    background: linear-gradient(135deg, #0f4c75 0%, #3282b8 100%);
+    color: white;
+    padding: 2.5rem;
+    border-radius: 15px;
+    text-align: center;
+    margin-bottom: 2rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+.metric-container {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    margin: 1rem 0;
+}
+.success-box {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    border: none;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    color: #155724;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+class QuantitativeEventAnalyzer:
+    """Professional Quantitative Event Study Analyzer"""
+
+    def __init__(self):
+        self.data_cache = {}
+        self.results = {}
+
+    def fetch_market_data(self, ticker, start_date, end_date):
+        """Fetch and process market data"""
+        try:
+            stock = yf.Ticker(ticker)
+            data = stock.history(start=start_date, end=end_date)
+
+            if data.empty:
+                return None
+
+            # Calculate essential metrics
+            data['Returns'] = data['Close'].pct_change()
+            data['Log_Returns'] = np.log(data['Close'] / data['Close'].shift(1))
+            data['Volatility'] = data['Returns'].rolling(window=20).std() * np.sqrt(252)
+            data['Volume_MA'] = data['Volume'].rolling(window=20).mean()
+            data['Price_MA'] = data['Close'].rolling(window=20).mean()
+
+            # Technical indicators
+            data['RSI'] = self._calculate_rsi(data['Close'])
+            data['HL_Spread'] = (data['High'] - data['Low']) / data['Close']
+
+            # Clean infinite and NaN values
+            data = data.replace([np.inf, -np.inf], np.nan)
+
+            return data
+
+        except Exception as e:
+            st.error(f"❌ Error fetching data for {ticker}: {str(e)}")
+            return None
+
+    def _calculate_rsi(self, prices, window=14):
+        """Calculate RSI with error handling"""
+        try:
+            delta = prices.diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+
+            # Prevent division by zero
+            loss = loss.replace(0, np.nan)
+            rs = gain / loss
+            rsi = 100 - (100 / (1 + rs))
+
+            return rsi.fillna(50)  # Neutral RSI for missing values
+        except:
+            return pd.Series(50, index=prices.index)
+
+    def estimate_capm_model(self, asset_returns, market_returns):
+        """Estimate CAPM model parameters"""
+        try:
+            # Combine and align data
+            combined_data = pd.concat([asset_returns, market_returns], axis=1, join='inner')
+            combined_data.columns = ['Asset', 'Market']
+            combined_data = combined_data.dropna()
+
+            if len(combined_data) < 30:
+                return None, None, None
+
+            # Remove statistical outliers
+            z_asset = np.abs(stats.zscore(combined_data['Asset']))
+            z_market = np.abs(stats.zscore(combined_data['Market']))
+            combined_data = combined_data[(z_asset < 3) & (z_market < 3)]
+
+            if len(combined_data) < 20:
+                return None, None, None
+
+            # Perform linear regression
+            market_vals = combined_data['Market'].values
+            asset_vals = combined_data['Asset'].values
+
+            # Check for constant values
+            if np.std(market_vals) == 0 or np.std(asset_vals) == 0:
+                return None, None, None
+
+            # CAPM regression: R_asset = alpha + beta * R_market + error
+            slope, intercept, r_value, p_value, std_err = stats.linregress(market_vals, asset_vals)
+
+            # Calculate diagnostics
+            residuals = asset_vals - (intercept + slope * market_vals)
+
+            model_diagnostics = {
+                'alpha': intercept,
+                'beta': slope,
+                'r_squared': r_value ** 2,
+                'p_value': p_value,
+                'std_error_beta': std_err,
+                'observations': len(combined_data),
+                'residual_std': np.std(residuals),
+                'correlation': r_value,
+                'mean_return': np.mean(asset_vals),
+                'volatility': np.std(asset_vals)
+            }
+
+            return intercept, slope, model_diagnostics
+
+        except Exception as e:
+            st.error(f"❌ CAPM estimation error: {str(e)}")
+            return None, None, None
+
+    def calculate_event_abnormal_returns(self, asset_data, market_data, alpha, beta, event_date, window_size=7):
+        """Calculate abnormal returns for event window"""
+        try:
+            # Define event window
+            event_start = event_date - pd.Timedelta(days=window_size)
+            event_end = event_date + pd.Timedelta(days=window_size)
+
+            # Extract event window data
+            asset_event_returns = asset_data.loc[event_start:event_end, 'Returns'].dropna()
+            market_event_returns = market_data.loc[event_start:event_end, 'Returns'].dropna()
+
+            # Align event window data
+            event_data = pd.concat([asset_event_returns, market_event_returns], axis=1, join='inner')
+            event_data.columns = ['Asset_Return', 'Market_Return']
+
+            if event_data.empty:
+                return None, None
+
+            # Calculate expected returns using CAPM
+            event_data['Expected_Return'] = alpha + beta * event_data['Market_Return']
+            event_data['Abnormal_Return'] = event_data['Asset_Return'] - event_data['Expected_Return']
+            event_data['Cumulative_AR'] = event_data['Abnormal_Return'].cumsum()
+
+            # Add confidence intervals
+            ar_std = event_data['Abnormal_Return'].std()
+            if ar_std > 0:
+                periods = np.arange(1, len(event_data) + 1)
+                event_data['Upper_CI'] = event_data['Cumulative_AR'] + 1.96 * ar_std * np.sqrt(periods)
+                event_data['Lower_CI'] = event_data['Cumulative_AR'] - 1.96 * ar_std * np.sqrt(periods)
+            else:
+                event_data['Upper_CI'] = event_data['Cumulative_AR']
+                event_data['Lower_CI'] = event_data['Cumulative_AR']
+
+            # Comprehensive statistical analysis
+            ar_values = event_data['Abnormal_Return'].values
+
+            # Basic statistics
+            mean_ar = np.mean(ar_values)
+            std_ar = np.std(ar_values, ddof=1) if len(ar_values) > 1 else 0
+            total_car = event_data['Cumulative_AR'].iloc[-1]
+
+            # Statistical significance tests
+            if std_ar > 0 and len(ar_values) > 1:
+                t_statistic = mean_ar / (std_ar / np.sqrt(len(ar_values)))
+                p_value_t = 2 * (1 - stats.t.cdf(abs(t_statistic), len(ar_values) - 1))
+            else:
+                t_statistic = 0
+                p_value_t = 1
+
+            # Non-parametric tests
+            try:
+                if len(ar_values) > 3:
+                    wilcoxon_stat, wilcoxon_p = stats.wilcoxon(ar_values, alternative='two-sided')
+                    shapiro_stat, shapiro_p = stats.shapiro(ar_values)
+                    jb_stat, jb_p = stats.jarque_bera(ar_values)
+                else:
+                    wilcoxon_stat, wilcoxon_p = 0, 1
+                    shapiro_stat, shapiro_p = 0, 1
+                    jb_stat, jb_p = 0, 1
+            except:
+                wilcoxon_stat, wilcoxon_p = 0, 1
+                shapiro_stat, shapiro_p = 0, 1
+                jb_stat, jb_p = 0, 1
+
+            # Compile statistics
+            event_statistics = {
+                'mean_ar': mean_ar,
+                'std_ar': std_ar,
+                'total_car': total_car,
+                't_statistic': t_statistic,
+                'p_value': p_value_t,
+                'wilcoxon_statistic': wilcoxon_stat,
+                'wilcoxon_p': wilcoxon_p,
+                'shapiro_statistic': shapiro_stat,
+                'shapiro_p': shapiro_p,
+                'jarque_bera_statistic': jb_stat,
+                'jarque_bera_p': jb_p,
+                'observations': len(ar_values),
+                'positive_days': int(np.sum(ar_values > 0)),
+                'negative_days': int(np.sum(ar_values < 0)),
+                'max_ar': float(np.max(ar_values)) if len(ar_values) > 0 else 0,
+                'min_ar': float(np.min(ar_values)) if len(ar_values) > 0 else 0,
+                'skewness': float(stats.skew(ar_values)) if len(ar_values) > 2 else 0,
+                'kurtosis': float(stats.kurtosis(ar_values)) if len(ar_values) > 3 else 0
+            }
+
+            return event_data, event_statistics
+
+        except Exception as e:
+            st.error(f"❌ Abnormal returns calculation error: {str(e)}")
+            return None, None
+
+
+# Visualization Functions
+def create_event_study_chart(abnormal_data, asset_name, event_date):
+    """Create professional event study visualization"""
+    fig = make_subplots(
+        rows=2, cols=1,
+        subplot_titles=(
+            f'Daily Abnormal Returns - {asset_name}',
+            f'Cumulative Abnormal Returns with Confidence Intervals'
+        ),
+        vertical_spacing=0.12
+    )
+
+    # Daily abnormal returns (percentage)
+    ar_percent = abnormal_data['Abnormal_Return'] * 100
+    colors = ['crimson' if x < 0 else 'forestgreen' for x in ar_percent]
+
+    fig.add_trace(go.Bar(
+        x=abnormal_data.index,
+        y=ar_percent,
+        name='Daily AR (%)',
+        marker_color=colors,
+        opacity=0.8,
+        hovertemplate='Date: %{x}<br>AR: %{y:.3f}%<extra></extra>'
+    ), row=1, col=1)
+
+    # Cumulative abnormal returns
+    car_percent = abnormal_data['Cumulative_AR'] * 100
+
+    fig.add_trace(go.Scatter(
+        x=abnormal_data.index,
+        y=car_percent,
+        mode='lines+markers',
+        name='CAR (%)',
+        line=dict(color='navy', width=4),
+        marker=dict(size=8, color='navy'),
+        hovertemplate='Date: %{x}<br>CAR: %{y:.3f}%<extra></extra>'
+    ), row=2, col=1)
+
+    # Confidence intervals
+    if 'Upper_CI' in abnormal_data.columns:
+        upper_ci = abnormal_data['Upper_CI'] * 100
+        lower_ci = abnormal_data['Lower_CI'] * 100
+
+        fig.add_trace(go.Scatter(
+            x=list(abnormal_data.index) + list(abnormal_data.index[::-1]),
+            y=list(upper_ci) + list(lower_ci[::-1]),
+            fill='tonexty',
+            fillcolor='rgba(70,130,180,0.25)',
+            line=dict(color='rgba(255,255,255,0)'),
+            name='95% Confidence Band',
+            showlegend=True,
+            hoverinfo='skip'
+        ), row=2, col=1)
+
+    # Reference lines
+    fig.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.7, row=1, col=1)
+    fig.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.7, row=2, col=1)
+
+    # Event date markers
+    fig.add_vline(
+        x=event_date,
+        line_dash="dot",
+        line_color="red",
+        line_width=3,
+        annotation_text="📅 Event Date",
+        annotation_position="top",
+        row=1, col=1
+    )
+    fig.add_vline(x=event_date, line_dash="dot", line_color="red", line_width=3, row=2, col=1)
+
+    # Layout styling
+    fig.update_layout(
+        title=f'📊 Event Study Analysis: {asset_name}',
+        height=700,
+        hovermode='x unified',
+        template='plotly_white',
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+
+    # Axis labels
+    fig.update_yaxes(title_text="Abnormal Return (%)", row=1, col=1)
+    fig.update_yaxes(title_text="Cumulative AR (%)", row=2, col=1)
+    fig.update_xaxes(title_text="Date", row=2, col=1)
+
+    return fig
+
+
+def create_cross_asset_dashboard(all_results, event_date):
+    """Create comprehensive cross-asset analysis dashboard"""
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=(
+            '📈 Cumulative Abnormal Returns Comparison',
+            '🎯 Beta vs R² Analysis',
+            '📊 Statistical Significance Overview',
+            '⚖️ Risk-Return Profile'
+        ),
+        specs=[
+            [{"secondary_y": False}, {"secondary_y": False}],
+            [{"type": "bar"}, {"type": "scatter"}]
+        ]
+    )
+
+    # Extract data for analysis
+    asset_names = list(all_results.keys())
+    colors = px.colors.qualitative.Set3[:len(asset_names)]
+
+    # 1. Cumulative abnormal returns comparison
+    for i, (asset_name, result) in enumerate(all_results.items()):
+        if result.get('abnormal_data') is not None:
+            abnormal_data = result['abnormal_data']
+            car_percent = abnormal_data['Cumulative_AR'] * 100
+
+            fig.add_trace(go.Scatter(
+                x=abnormal_data.index,
+                y=car_percent,
+                mode='lines+markers',
+                name=asset_name,
+                line=dict(width=3, color=colors[i]),
+                marker=dict(size=6),
+                hovertemplate=f'{asset_name}<br>Date: %{{x}}<br>CAR: %{{y:.3f}}%<extra></extra>'
+            ), row=1, col=1)
+
+    # 2. Beta vs R² scatter plot
+    betas = [all_results[asset]['beta'] for asset in asset_names]
+    r_squareds = [all_results[asset]['model_diagnostics']['r_squared'] for asset in asset_names]
+    cars = [all_results[asset]['event_statistics']['total_car'] * 100 for asset in asset_names]
+
+    fig.add_trace(go.Scatter(
+        x=betas,
+        y=r_squareds,
+        mode='markers+text',
+        text=asset_names,
+        textposition="top center",
+        name='Assets',
+        marker=dict(
+            size=15,
+            color=cars,
+            colorscale='RdYlGn',
+            showscale=True,
+            colorbar=dict(
+                title="CAR (%)",
+                x=0.48
+            ),
+            line=dict(width=2, color='black')
+        ),
+        hovertemplate='%{text}<br>Beta: %{x:.3f}<br>R²: %{y:.3f}<br>CAR: %{marker.color:.3f}%<extra></extra>',
+        showlegend=False
+    ), row=1, col=2)
+
+    # 3. Statistical significance
+    p_values = [all_results[asset]['event_statistics']['p_value'] for asset in asset_names]
+    sig_colors = ['#2E8B57' if p < 0.01 else '#FFA500' if p < 0.05 else '#DC143C' for p in p_values]
+
+    fig.add_trace(go.Bar(
+        x=asset_names,
+        y=p_values,
+        name='P-Values',
+        marker_color=sig_colors,
+        opacity=0.8,
+        hovertemplate='%{x}<br>P-Value: %{y:.6f}<extra></extra>',
+        showlegend=False
+    ), row=2, col=1)
+
+    # 4. Risk-Return profile
+    volatilities = [all_results[asset]['event_statistics']['std_ar'] * 100 for asset in asset_names]
+
+    fig.add_trace(go.Scatter(
+        x=volatilities,
+        y=cars,
+        mode='markers+text',
+        text=asset_names,
+        textposition="top center",
+        name='Risk-Return',
+        marker=dict(
+            size=18,
+            color=cars,
+            colorscale='RdYlGn',
+            showscale=False,
+            line=dict(width=2, color='black')
+        ),
+        hovertemplate='%{text}<br>Risk: %{x:.3f}%<br>Return: %{y:.3f}%<extra></extra>',
+        showlegend=False
+    ), row=2, col=2)
+
+    # Add reference lines
+    fig.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.6, row=1, col=1)
+    fig.add_vline(x=event_date, line_dash="dot", line_color="red", line_width=3, row=1, col=1)
+    fig.add_hline(y=1, line_dash="dash", line_color="blue", opacity=0.6, row=1, col=2)
+    fig.add_hline(y=0.05, line_dash="dash", line_color="red", opacity=0.8, row=2, col=1)
+    fig.add_hline(y=0, line_dash="dash", line_color="black", opacity=0.6, row=2, col=2)
+
+    # Update layout
+    fig.update_layout(
+        title='🎯 Comprehensive Cross-Asset Event Study Dashboard',
+        height=900,
+        template='plotly_white',
+        showlegend=True
+    )
+
+    # Update axis labels
+    fig.update_yaxes(title_text="CAR (%)", row=1, col=1)
+    fig.update_xaxes(title_text="Beta (Market Sensitivity)", row=1, col=2)
+    fig.update_yaxes(title_text="R² (Explanatory Power)", row=1, col=2)
+    fig.update_xaxes(title_text="Assets", row=2, col=1)
+    fig.update_yaxes(title_text="P-Value", row=2, col=1)
+    fig.update_xaxes(title_text="Volatility (%)", row=2, col=2)
+    fig.update_yaxes(title_text="CAR (%)", row=2, col=2)
+
+    return fig
+
+
+def create_correlation_heatmap(all_results):
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+
+    print("📊 Generating correlation heatmap...")
+
+    returns_data = {}
+
+    for name, result in all_results.items():
+        try:
+            df = result.get("data")
+            if isinstance(df, pd.DataFrame) and not df.empty and 'Adj Close' in df.columns:
+                series = df['Adj Close'].pct_change().dropna()
+                if isinstance(series, pd.Series) and not series.empty and series.notna().sum() > 1:
+                    returns_data[name] = series
+                else:
+                    print(f"⚠️ Skipped {name}: series is empty or invalid")
+            else:
+                print(f"⚠️ Skipped {name}: DataFrame is invalid or missing 'Adj Close'")
+        except Exception as e:
+            print(f"❌ Error with {name}: {e}")
+
+    if len(returns_data) >= 2:
+        try:
+            returns_df = pd.DataFrame(returns_data)
+            correlation_matrix = returns_df.corr()
+
+            plt.figure(figsize=(10, 8))
+            sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0, square=True,
+                        cbar_kws={'shrink': 0.8})
+            plt.title('Asset Return Correlations', fontweight='bold')
+            plt.tight_layout()
+            plt.show()
+        except Exception as e:
+            print(f"❌ Failed to create correlation heatmap: {e}")
+    else:
+        print("❗ Not enough valid data for correlation heatmap.")
+
+def main():
+    """Main application function"""
+
+    # Header
+    st.markdown("""
+    <div class="jp-morgan-header">
+        <h1>🏛️ JP MORGAN QUANTITATIVE RESEARCH</h1>
+        <h2>Professional Event Study Analysis Platform</h2>
+        <p>Advanced quantitative finance analysis with statistical rigor</p>
+        <p><em>Real-time market data • CAPM modeling • Statistical testing • Professional reporting</em></p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Initialize session state
+    if 'analysis_completed' not in st.session_state:
+        st.session_state.analysis_completed = False
+    if 'analysis_results' not in st.session_state:
+        st.session_state.analysis_results = {}
+
+    # Sidebar Configuration
+    with st.sidebar:
+        st.markdown("### 📊 Analysis Configuration")
+
+        # Event Parameters
+        st.markdown("#### 🎯 Event Definition")
+        event_name = st.text_input(
+            "Event Name",
+            value="China Trade Policy Announcement",
+            help="Name of the event being analyzed"
+        )
+
+        event_date = st.date_input(
+            "Event Date",
+            value=datetime(2024, 6, 2).date(),
+            help="Date when the event occurred"
+        )
+        event_date = pd.Timestamp(event_date)
+
+        st.info(f"📅 **Event:** {event_name}\n\n📆 **Date:** {event_date.strftime('%Y-%m-%d')}")
+
+        # Analysis Windows
+        st.markdown("#### 📏 Analysis Parameters")
+
+        estimation_window_days = st.slider(
+            "Estimation Window (days)",
+            min_value=60, max_value=250, value=120,
+            help="Number of days before event for CAPM parameter estimation"
+        )
+
+        event_window_days = st.slider(
+            "Event Window (±days around event)",
+            min_value=3, max_value=20, value=7,
+            help="Number of days before and after event to analyze"
+        )
+
+        # Asset Selection
+        st.markdown("#### 📈 Asset Portfolio")
+
+        # Asset categories
+        asset_categories = {
+            "🇨🇳 China/Trade Sensitive": {
+                "Alibaba Group": "BABA",
+                "JD.com Inc": "JD",
+                "Baidu Inc": "BIDU",
+                "MP Materials Corp": "MP"
+            },
+            "💻 Semiconductor Sector": {
+                "iShares Semiconductor ETF": "SOXX",
+                "VanEck Semiconductor ETF": "SMH",
+                "SPDR S&P Semiconductor ETF": "XSD",
+                "Invesco QQQ Trust": "QQQ"
+            },
+            "🚀 Technology Giants": {
+                "Apple Inc": "AAPL",
+                "Microsoft Corp": "MSFT",
+                "Alphabet Inc": "GOOGL",
+                "Tesla Inc": "TSLA",
+                "NVIDIA Corp": "NVDA"
+            }
+        }
+
+        selected_category = st.selectbox(
+            "Asset Category",
+            list(asset_categories.keys()),
+            help="Choose asset category for analysis"
+        )
+
+        selected_assets = {}
+        st.markdown(f"**Select assets from {selected_category}:**")
+
+        # Default selections based on category
+        default_selections = {
+            "🇨🇳 China/Trade Sensitive": ["BABA", "MP"],
+            "💻 Semiconductor Sector": ["SOXX", "SMH"],
+            "🚀 Technology Giants": ["AAPL", "MSFT"]
+        }
+
+        defaults = default_selections.get(selected_category, [])
+
+        for asset_name, ticker in asset_categories[selected_category].items():
+            is_selected = st.checkbox(
+                f"{asset_name} ({ticker})",
+                value=(ticker in defaults),
+                key=f"asset_{ticker}"
+            )
+            if is_selected:
+                selected_assets[asset_name] = ticker
+
+        # Statistical Parameters
+        st.markdown("#### 📊 Statistical Settings")
+
+        confidence_level = st.slider(
+            "Confidence Level",
+            min_value=0.90, max_value=0.99, value=0.95, step=0.01,
+            help="Statistical confidence level for hypothesis testing"
+        )
+
+        significance_threshold = 1 - confidence_level
+
+        st.info(
+            f"📈 **Confidence Level:** {confidence_level:.0%}\n\n📉 **Significance Threshold:** {significance_threshold:.1%}")
+
+        # Advanced Options
+        with st.expander("🔧 Advanced Options"):
+            remove_outliers = st.checkbox(
+                "Remove Statistical Outliers",
+                value=True,
+                help="Remove observations beyond 3 standard deviations"
+            )
+
+            min_observations = st.slider(
+                "Minimum Observations Required",
+                min_value=20, max_value=100, value=30,
+                help="Minimum number of observations for reliable analysis"
+            )
+
+        # Analysis Execution
+        st.markdown("---")
+
+        if selected_assets:
+            st.success(f"✅ **{len(selected_assets)} assets** selected for analysis")
+        else:
+            st.warning("⚠️ Please select at least one asset to analyze")
+
+        run_analysis = st.button(
+            "🚀 Execute Event Study Analysis",
+            type="primary",
+            use_container_width=True,
+            disabled=(len(selected_assets) == 0)
+        )
+
+    # Main Analysis Execution
+    if run_analysis and selected_assets:
+
+        with st.spinner("🔄 Executing quantitative analysis..."):
+            try:
+                # Initialize analyzer
+                analyzer = QuantitativeEventAnalyzer()
+
+                # Progress tracking
+                progress_bar = st.progress(0)
+                status_container = st.empty()
+
+                # Calculate analysis date range
+                analysis_end_date = datetime.now()
+                analysis_start_date = event_date - timedelta(
+                    days=estimation_window_days + event_window_days + 60
+                )
+
+                # Step 1: Fetch Market Benchmark
+                status_container.info("📡 **Step 1/4:** Fetching market benchmark data (S&P 500)...")
+                progress_bar.progress(10)
+
+                market_benchmark = analyzer.fetch_market_data("SPY", analysis_start_date, analysis_end_date)
+
+                if market_benchmark is None or market_benchmark.empty:
+                    st.error("❌ Failed to fetch market benchmark data. Please try again.")
+                    st.stop()
+
+                st.success("✅ Market benchmark data successfully retrieved")
+                progress_bar.progress(20)
+
+                # Step 2: Process Individual Assets
+                status_container.info("📊 **Step 2/4:** Processing individual asset data...")
+
+                analysis_results = {}
+                total_assets = len(selected_assets)
+
+                for asset_index, (asset_name, ticker) in enumerate(selected_assets.items()):
+                    # Update progress
+                    asset_progress = 20 + ((asset_index + 1) / total_assets) * 50
+                    progress_bar.progress(int(asset_progress))
+                    status_container.info(
+                        f"📈 Analyzing **{asset_name}** ({ticker})... ({asset_index + 1}/{total_assets})")
+
+                    # Fetch asset data
+                    asset_data = analyzer.fetch_market_data(ticker, analysis_start_date, analysis_end_date)
+
+                    if asset_data is None or asset_data.empty:
+                        st.warning(f"⚠️ Could not fetch data for {asset_name} ({ticker})")
+                        continue
+
+                    # Define estimation period (before event window)
+                    estimation_end_date = event_date - timedelta(days=event_window_days)
+                    estimation_start_date = estimation_end_date - timedelta(days=estimation_window_days)
+
+                    # Extract estimation period returns
+                    try:
+                        asset_estimation_returns = asset_data.loc[
+                                                   estimation_start_date:estimation_end_date, 'Returns'
+                                                   ]
+                        market_estimation_returns = market_benchmark.loc[
+                                                    estimation_start_date:estimation_end_date, 'Returns'
+                                                    ]
+                    except Exception as e:
+                        st.warning(f"⚠️ Date alignment issue for {asset_name}: {str(e)}")
+                        continue
+
+                    # Estimate CAPM model
+                    alpha, beta, model_diagnostics = analyzer.estimate_capm_model(
+                        asset_estimation_returns, market_estimation_returns
+                    )
+
+                    if alpha is None or beta is None:
+                        st.warning(f"⚠️ Insufficient data for CAPM estimation: {asset_name}")
+                        continue
+
+                    # Calculate event period abnormal returns
+                    abnormal_data, event_statistics = analyzer.calculate_event_abnormal_returns(
+                        asset_data, market_benchmark, alpha, beta, event_date, event_window_days
+                    )
+
+                    if abnormal_data is None or event_statistics is None:
+                        st.warning(f"⚠️ Could not calculate abnormal returns for {asset_name}")
+                        continue
+
+                    # Store comprehensive results
+                    analysis_results[asset_name] = {
+                        'ticker': ticker,
+                        'alpha': alpha,
+                        'beta': beta,
+                        'model_diagnostics': model_diagnostics,
+                        'abnormal_data': abnormal_data,
+                        'event_statistics': event_statistics,
+                        'asset_data': asset_data
+                    }
+
+                    st.success(f"✅ Analysis completed for {asset_name}")
+
+                # Step 3: Statistical Analysis
+                status_container.info("🔬 **Step 3/4:** Performing statistical analysis...")
+                progress_bar.progress(80)
+
+                if not analysis_results:
+                    st.error("❌ No successful analyses. Please check your asset selection and try again.")
+                    st.stop()
+
+                # Step 4: Finalize Results
+                status_container.info("📋 **Step 4/4:** Finalizing analysis results...")
+                progress_bar.progress(95)
+
+                # Store results in session state
+                st.session_state.analysis_results = analysis_results
+                st.session_state.event_date = event_date
+                st.session_state.event_name = event_name
+                st.session_state.confidence_level = confidence_level
+                st.session_state.analysis_completed = True
+
+                progress_bar.progress(100)
+                status_container.empty()
+
+                # Success notification
+                st.markdown("""
+                <div class="success-box">
+                    <h3>🎉 Analysis Successfully Completed!</h3>
+                    <p><strong>Professional event study analysis has been executed.</strong></p>
+                    <p>📊 Navigate through the tabs below to explore comprehensive results and insights.</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            except Exception as e:
+                st.error(f"❌ Analysis execution failed: {str(e)}")
+                st.exception(e)
+
+    # Results Display Section
+    if st.session_state.analysis_completed and st.session_state.analysis_results:
+
+        st.markdown("---")
+        st.markdown('<h2 class="main-header">📊 Professional Analysis Results</h2>', unsafe_allow_html=True)
+
+        results = st.session_state.analysis_results
+
+        # Create comprehensive analysis tabs
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "📊 Executive Summary",
+            "📈 Individual Asset Analysis",
+            "📉 Cross-Asset Comparison",
+            "🔗 Correlation Analysis",
+            "📋 Statistical Details"
+        ])
+
+        # Tab 1: Executive Summary
+        with tab1:
+            st.markdown("### 🎯 Executive Summary Dashboard")
+
+            # Key Performance Indicators
+            st.markdown("#### 📈 Key Performance Indicators")
+
+            col1, col2, col3, col4 = st.columns(4)
+
+            total_assets_analyzed = len(results)
+            significant_results = sum(
+                1 for result in results.values()
+                if result['event_statistics']['p_value'] < 0.05
+            )
+            average_car = np.mean([
+                result['event_statistics']['total_car']
+                for result in results.values()
+            ])
+            max_absolute_car = max([
+                abs(result['event_statistics']['total_car'])
+                for result in results.values()
+            ])
+
+            with col1:
+                st.metric(
+                    "🏢 Assets Analyzed",
+                    f"{total_assets_analyzed}",
+                    help="Total number of assets successfully analyzed"
+                )
+
+            with col2:
+                st.metric(
+                    "📊 Significant Results",
+                    f"{significant_results}/{total_assets_analyzed}",
+                    help="Number of assets with statistically significant abnormal returns (p < 0.05)"
+                )
+
+            with col3:
+                st.metric(
+                    "📈 Average CAR",
+                    f"{average_car:.4f}",
+                    help="Average Cumulative Abnormal Return across all assets"
+                )
+
+            with col4:
+                st.metric(
+                    "🎯 Max |CAR|",
+                    f"{max_absolute_car:.4f}",
+                    help="Maximum absolute Cumulative Abnormal Return"
+                )
+
+            # Detailed Results Table
+            st.markdown("#### 📋 Comprehensive Results Summary")
+
+            summary_data = []
+            for asset_name, result in results.items():
+
+                # Determine significance level
+                p_val = result['event_statistics']['p_value']
+                if p_val < 0.01:
+                    significance_level = "Highly Significant***"
+                elif p_val < 0.05:
+                    significance_level = "Significant**"
+                elif p_val < 0.10:
+                    significance_level = "Marginally Significant*"
+                else:
+                    significance_level = "Not Significant"
+
+                # Determine economic impact
+                car = result['event_statistics']['total_car']
+                if abs(car) > 0.05:
+                    economic_impact = "High"
+                elif abs(car) > 0.02:
+                    economic_impact = "Moderate"
+                elif abs(car) > 0.01:
+                    economic_impact = "Low"
+                else:
+                    economic_impact = "Minimal"
+
+                summary_data.append({
+                    'Asset': asset_name,
+                    'Ticker': result['ticker'],
+                    'Alpha (α)': f"{result['alpha']:.6f}",
+                    'Beta (β)': f"{result['beta']:.4f}",
+                    'R²': f"{result['model_diagnostics']['r_squared']:.4f}",
+                    'CAR': f"{car:.4f}",
+                    'T-Statistic': f"{result['event_statistics']['t_statistic']:.4f}",
+                    'P-Value': f"{p_val:.6f}",
+                    'Statistical Significance': significance_level,
+                    'Economic Impact': economic_impact
+                })
+
+            summary_df = pd.DataFrame(summary_data)
+
+            # Sort by absolute CAR for better visualization
+            summary_df['abs_car'] = summary_df['CAR'].astype(float).abs()
+            summary_df = summary_df.sort_values('abs_car', ascending=False).drop('abs_car', axis=1)
+
+            st.dataframe(
+                summary_df,
+                use_container_width=True,
+                height=400
+            )
+
+            # Key Insights
+            st.markdown("#### 🔍 Key Analytical Insights")
+
+            insights_col1, insights_col2 = st.columns(2)
+
+            with insights_col1:
+                st.markdown("**📊 Statistical Insights:**")
+
+                # Market efficiency
+                minimal_reaction_assets = sum(
+                    1 for result in results.values()
+                    if abs(result['event_statistics']['total_car']) < 0.01
+                )
+
+                st.write(
+                    f"• **Market Efficiency**: {minimal_reaction_assets}/{total_assets_analyzed} assets showed minimal reaction (<1%), suggesting efficient price discovery")
+
+                # Beta distribution
+                high_beta_assets = sum(
+                    1 for result in results.values()
+                    if result['beta'] > 1.2
+                )
+
+                st.write(f"• **Systematic Risk**: {high_beta_assets} assets exhibit high market sensitivity (β > 1.2)")
+
+                # Model quality
+                high_r2_assets = sum(
+                    1 for result in results.values()
+                    if result['model_diagnostics']['r_squared'] > 0.3
+                )
+
+                st.write(
+                    f"• **Model Quality**: {high_r2_assets}/{total_assets_analyzed} assets have strong CAPM fit (R² > 0.3)")
+
+            with insights_col2:
+                st.markdown("**💼 Economic Insights:**")
+
+                # Direction of impact
+                positive_impact = sum(
+                    1 for result in results.values()
+                    if result['event_statistics']['total_car'] > 0
+                )
+
+                st.write(
+                    f"• **Event Impact Direction**: {positive_impact} assets experienced positive abnormal returns")
+
+                # Volatility assessment
+                high_vol_assets = sum(
+                    1 for result in results.values()
+                    if result['event_statistics']['std_ar'] > 0.02
+                )
+
+                st.write(
+                    f"• **Volatility Impact**: {high_vol_assets} assets showed heightened volatility during event period")
+
+                # Overall market assessment
+                overall_car = sum(result['event_statistics']['total_car'] for result in results.values())
+
+                impact_direction = "positive" if overall_car > 0 else "negative"
+                st.write(
+                    f"• **Overall Market Impact**: Event had a net {impact_direction} impact across analyzed portfolio")
+
+        # Tab 2: Individual Asset Analysis
+        with tab2:
+            st.markdown("### 📈 Individual Asset Deep Dive")
+
+            # Asset selection
+            asset_names = list(results.keys())
+            selected_asset = st.selectbox(
+                "🎯 Select Asset for Detailed Analysis",
+                asset_names,
+                help="Choose an asset to view detailed event study results"
+            )
+
+            if selected_asset:
+                result = results[selected_asset]
+
+                # Asset overview metrics
+                st.markdown(f"#### 📊 {selected_asset} Analysis Overview")
+
+                metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+
+                with metric_col1:
+                    st.metric(
+                        "📈 Cumulative Abnormal Return",
+                        f"{result['event_statistics']['total_car']:.4f}",
+                        help="Total abnormal return accumulated during event window"
+                    )
+
+                with metric_col2:
+                    st.metric(
+                        "📊 Average Daily AR",
+                        f"{result['event_statistics']['mean_ar']:.4f}",
+                        help="Average daily abnormal return during event period"
+                    )
+
+                with metric_col3:
+                    significance_status = (
+                        "✅ Significant" if result['event_statistics']['p_value'] < 0.05
+                        else "❌ Not Significant"
+                    )
+                    st.metric(
+                        "🔬 Statistical Significance",
+                        significance_status,
+                        help=f"P-value: {result['event_statistics']['p_value']:.6f}"
+                    )
+
+                with metric_col4:
+                    st.metric(
+                        "⚖️ Market Beta",
+                        f"{result['beta']:.4f}",
+                        help="Market sensitivity coefficient from CAPM model"
+                    )
+
+                # Event study visualization
+                if result.get('abnormal_data') is not None:
+                    fig = create_event_study_chart(
+                        result['abnormal_data'],
+                        selected_asset,
+                        st.session_state.event_date
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+                # CAPM Model Diagnostics
+                st.markdown("#### 🔬 CAPM Model Diagnostics")
+
+                diag_col1, diag_col2 = st.columns(2)
+
+                with diag_col1:
+                    st.markdown("**📈 Model Parameters:**")
+                    diagnostics = result['model_diagnostics']
+
+                    st.write(f"• **Alpha (α)**: {diagnostics['alpha']:.6f}")
+                    st.write(f"• **Beta (β)**: {diagnostics['beta']:.4f}")
+                    st.write(f"• **R-squared**: {diagnostics['r_squared']:.4f}")
+                    st.write(f"• **Correlation**: {diagnostics['correlation']:.4f}")
+                    st.write(f"• **Observations**: {diagnostics['observations']}")
+
+                with diag_col2:
+                    st.markdown("**🎯 Model Quality Assessment:**")
+
+                    # Model quality indicators
+                    if diagnostics['r_squared'] > 0.5:
+                        st.write("✅ **Excellent explanatory power** (R² > 0.5)")
+                    elif diagnostics['r_squared'] > 0.3:
+                        st.write("✅ **Good explanatory power** (R² > 0.3)")
+                    elif diagnostics['r_squared'] > 0.1:
+                        st.write("⚠️ **Moderate explanatory power** (R² > 0.1)")
+                    else:
+                        st.write("❌ **Low explanatory power** (R² ≤ 0.1)")
+
+                    if diagnostics['p_value'] < 0.01:
+                        st.write("✅ **Highly significant beta** (p < 0.01)")
+                    elif diagnostics['p_value'] < 0.05:
+                        st.write("✅ **Significant beta** (p < 0.05)")
+                    else:
+                        st.write("❌ **Beta not statistically significant**")
+
+                    if 0.8 <= diagnostics['beta'] <= 1.2:
+                        st.write("📊 **Market-like risk profile**")
+                    elif diagnostics['beta'] > 1.2:
+                        st.write("📈 **Higher than market risk**")
+                    else:
+                        st.write("📉 **Lower than market risk**")
+
+                # Statistical Test Results
+                st.markdown("#### 🧪 Comprehensive Statistical Tests")
+
+                stats_col1, stats_col2 = st.columns(2)
+
+                with stats_col1:
+                    st.markdown("**📊 Parametric Tests:**")
+                    event_stats = result['event_statistics']
+
+                    st.write(f"• **T-test p-value**: {event_stats['p_value']:.6f}")
+                    if event_stats['p_value'] < 0.01:
+                        st.write("  → Highly significant abnormal returns")
+                    elif event_stats['p_value'] < 0.05:
+                        st.write("  → Significant abnormal returns")
+                    else:
+                        st.write("  → No significant abnormal returns")
+
+                    st.write(f"• **Jarque-Bera p-value**: {event_stats['jarque_bera_p']:.6f}")
+                    if event_stats['jarque_bera_p'] > 0.05:
+                        st.write("  → Returns are normally distributed")
+                    else:
+                        st.write("  → Returns deviate from normal distribution")
+
+                with stats_col2:
+                    st.markdown("**📊 Non-Parametric Tests:**")
+
+                    st.write(f"• **Wilcoxon p-value**: {event_stats['wilcoxon_p']:.6f}")
+                    if event_stats['wilcoxon_p'] < 0.05:
+                        st.write("  → Significant abnormal returns (non-parametric)")
+                    else:
+                        st.write("  → No significant abnormal returns (non-parametric)")
+
+                    st.write(f"• **Shapiro-Wilk p-value**: {event_stats['shapiro_p']:.6f}")
+                    if event_stats['shapiro_p'] > 0.05:
+                        st.write("  → Returns pass normality test")
+                    else:
+                        st.write("  → Returns fail normality test")
+
+                # Detailed Statistics Table
+                st.markdown("#### 📋 Event Window Statistics")
+
+                detailed_stats = {
+                    'Metric': [
+                        'Observations',
+                        'Mean Abnormal Return',
+                        'Standard Deviation',
+                        'Total CAR',
+                        'Positive Days',
+                        'Negative Days',
+                        'Maximum Daily AR',
+                        'Minimum Daily AR',
+                        'Skewness',
+                        'Kurtosis'
+                    ],
+                    'Value': [
+                        f"{event_stats['observations']}",
+                        f"{event_stats['mean_ar']:.6f}",
+                        f"{event_stats['std_ar']:.6f}",
+                        f"{event_stats['total_car']:.6f}",
+                        f"{event_stats['positive_days']}",
+                        f"{event_stats['negative_days']}",
+                        f"{event_stats['max_ar']:.6f}",
+                        f"{event_stats['min_ar']:.6f}",
+                        f"{event_stats['skewness']:.4f}",
+                        f"{event_stats['kurtosis']:.4f}"
+                    ],
+                    'Interpretation': [
+                        'Number of trading days in event window',
+                        'Average daily abnormal return',
+                        'Volatility of abnormal returns',
+                        'Cumulative effect over event period',
+                        'Days with positive abnormal returns',
+                        'Days with negative abnormal returns',
+                        'Largest single-day positive impact',
+                        'Largest single-day negative impact',
+                        'Asymmetry of abnormal returns distribution',
+                        'Tail heaviness of distribution'
+                    ]
+                }
+
+                st.dataframe(
+                    pd.DataFrame(detailed_stats),
+                    use_container_width=True,
+                    height=400
+                )
+
+        # Tab 3: Cross-Asset Comparison
+        with tab3:
+            st.markdown("### 📉 Cross-Asset Comparative Analysis")
+
+            # Cross-asset dashboard
+            fig = create_cross_asset_dashboard(results, st.session_state.event_date)
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Comparative statistics
+            st.markdown("#### 📊 Comparative Performance Metrics")
+
+            comparison_data = []
+            for asset_name, result in results.items():
+                comparison_data.append({
+                    'Asset': asset_name,
+                    'CAR (%)': f"{result['event_statistics']['total_car'] * 100:.3f}",
+                    'Volatility (%)': f"{result['event_statistics']['std_ar'] * 100:.3f}",
+                    'Beta': f"{result['beta']:.3f}",
+                    'R²': f"{result['model_diagnostics']['r_squared']:.3f}",
+                    'P-Value': f"{result['event_statistics']['p_value']:.6f}",
+                    'Risk-Adj Return': f"{result['event_statistics']['total_car'] / result['event_statistics']['std_ar'] if result['event_statistics']['std_ar'] > 0 else 0:.3f}"
+                })
+
+            comparison_df = pd.DataFrame(comparison_data)
+
+            # Sort by CAR for ranking
+            comparison_df['car_numeric'] = comparison_df['CAR (%)'].astype(float)
+            comparison_df = comparison_df.sort_values('car_numeric', ascending=False).drop('car_numeric', axis=1)
+
+            st.dataframe(comparison_df, use_container_width=True)
+
+            # Performance ranking
+            st.markdown("#### 🏆 Event Impact Ranking")
+
+            rank_col1, rank_col2 = st.columns(2)
+
+            with rank_col1:
+                st.markdown("**🥇 Top Performers (Highest CAR):**")
+                top_performers = sorted(
+                    results.items(),
+                    key=lambda x: x[1]['event_statistics']['total_car'],
+                    reverse=True
+                )[:3]
+
+                for i, (asset, result) in enumerate(top_performers, 1):
+                    car_pct = result['event_statistics']['total_car'] * 100
+                    st.write(f"{i}. **{asset}**: {car_pct:+.3f}%")
+
+            with rank_col2:
+                st.markdown("**📉 Largest Negative Impact:**")
+                worst_performers = sorted(
+                    results.items(),
+                    key=lambda x: x[1]['event_statistics']['total_car']
+                )[:3]
+
+                for i, (asset, result) in enumerate(worst_performers, 1):
+                    car_pct = result['event_statistics']['total_car'] * 100
+                    st.write(f"{i}. **{asset}**: {car_pct:+.3f}%")
+
+        # Tab 4: Correlation Analysis
+        with tab4:
+            st.markdown("### 🔗 Portfolio Correlation Analysis")
+
+            # Create correlation heatmap
+            correlation_fig = create_correlation_heatmap(results)
+
+            if correlation_fig:
+                st.plotly_chart(correlation_fig, use_container_width=True)
+
+                # Correlation insights
+                st.markdown("#### 🔍 Correlation Insights")
+
+                # Calculate portfolio metrics
+                returns_data = {}
+                for asset_name, result in results.items():
+                    if result.get('asset_data') is not None:
+                        returns_data[asset_name] = result['asset_data']['Returns']
+
+                if len(returns_data) >= 2:
+                    returns_df = pd.DataFrame(returns_data).dropna()
+
+                    if not returns_df.empty:
+                        corr_matrix = returns_df.corr()
+
+                        # Find highest and lowest correlations
+                        corr_values = []
+                        for i in range(len(corr_matrix.columns)):
+                            for j in range(i + 1, len(corr_matrix.columns)):
+                                corr_values.append({
+                                    'Asset1': corr_matrix.columns[i],
+                                    'Asset2': corr_matrix.columns[j],
+                                    'Correlation': corr_matrix.iloc[i, j]
+                                })
+
+                        corr_df = pd.DataFrame(corr_values)
+
+                        insight_col1, insight_col2 = st.columns(2)
+
+                        with insight_col1:
+                            st.markdown("**🔗 Highest Correlations:**")
+                            highest_corr = corr_df.nlargest(3, 'Correlation')
+                            for _, row in highest_corr.iterrows():
+                                st.write(f"• **{row['Asset1']}** ↔ **{row['Asset2']}**: {row['Correlation']:.3f}")
+
+                        with insight_col2:
+                            st.markdown("**📈 Lowest Correlations:**")
+                            lowest_corr = corr_df.nsmallest(3, 'Correlation')
+                            for _, row in lowest_corr.iterrows():
+                                st.write(f"• **{row['Asset1']}** ↔ **{row['Asset2']}**: {row['Correlation']:.3f}")
+
+                        # Portfolio diversification insight
+                        avg_correlation = corr_df['Correlation'].mean()
+                        st.markdown(f"#### 📊 Portfolio Diversification Analysis")
+                        st.write(f"**Average Correlation**: {avg_correlation:.3f}")
+
+                        if avg_correlation < 0.3:
+                            st.success(
+                                "✅ **Well Diversified Portfolio** - Low average correlation suggests good diversification")
+                        elif avg_correlation < 0.6:
+                            st.warning("⚠️ **Moderately Diversified Portfolio** - Some concentration risk present")
+                        else:
+                            st.error(
+                                "❌ **Poorly Diversified Portfolio** - High correlation suggests concentration risk")
+
+            else:
+                st.warning("⚠️ Unable to generate correlation matrix. Insufficient data for analysis.")
+
+        # Tab 5: Statistical Details
+        with tab5:
+            st.markdown("### 📋 Comprehensive Statistical Details")
+
+            # Detailed statistical summary
+            st.markdown("#### 🧪 Statistical Test Summary")
+
+            statistical_summary = []
+            for asset_name, result in results.items():
+                stats_dict = result['event_statistics']
+
+                # Determine overall statistical significance
+                significant_tests = 0
+                total_tests = 3
+
+                if stats_dict['p_value'] < 0.05:
+                    significant_tests += 1
+                if stats_dict['wilcoxon_p'] < 0.05:
+                    significant_tests += 1
+                if stats_dict['jarque_bera_p'] > 0.05:  # Normal distribution is good
+                    significant_tests += 1
+
+                overall_confidence = (significant_tests / total_tests) * 100
+
+                statistical_summary.append({
+                    'Asset': asset_name,
+                    'T-Test P-Value': f"{stats_dict['p_value']:.6f}",
+                    'Wilcoxon P-Value': f"{stats_dict['wilcoxon_p']:.6f}",
+                    'Shapiro-Wilk P-Value': f"{stats_dict['shapiro_p']:.6f}",
+                    'Jarque-Bera P-Value': f"{stats_dict['jarque_bera_p']:.6f}",
+                    'Skewness': f"{stats_dict['skewness']:.4f}",
+                    'Kurtosis': f"{stats_dict['kurtosis']:.4f}",
+                    'Overall Confidence': f"{overall_confidence:.0f}%"
+                })
+
+            statistical_df = pd.DataFrame(statistical_summary)
+            st.dataframe(statistical_df, use_container_width=True)
+
+            # Model quality assessment
+            st.markdown("#### 🎯 CAPM Model Quality Assessment")
+
+            model_quality_data = []
+            for asset_name, result in results.items():
+                diagnostics = result['model_diagnostics']
+
+                # Calculate model quality score
+                quality_score = 0
+                max_score = 4
+
+                # R-squared criterion
+                if diagnostics['r_squared'] > 0.5:
+                    quality_score += 2
+                elif diagnostics['r_squared'] > 0.3:
+                    quality_score += 1
+
+                # Statistical significance
+                if diagnostics['p_value'] < 0.01:
+                    quality_score += 2
+                elif diagnostics['p_value'] < 0.05:
+                    quality_score += 1
+
+                quality_percentage = (quality_score / max_score) * 100
+
+                if quality_percentage >= 75:
+                    quality_rating = "Excellent"
+                elif quality_percentage >= 50:
+                    quality_rating = "Good"
+                elif quality_percentage >= 25:
+                    quality_rating = "Fair"
+                else:
+                    quality_rating = "Poor"
+
+                model_quality_data.append({
+                    'Asset': asset_name,
+                    'R²': f"{diagnostics['r_squared']:.4f}",
+                    'Beta P-Value': f"{diagnostics['p_value']:.6f}",
+                    'Standard Error': f"{diagnostics['std_error_beta']:.6f}",
+                    'Observations': diagnostics['observations'],
+                    'Quality Score': f"{quality_score}/{max_score}",
+                    'Quality Rating': quality_rating
+                })
+
+            model_quality_df = pd.DataFrame(model_quality_data)
+            st.dataframe(model_quality_df, use_container_width=True)
+
+            # Export functionality
+            st.markdown("#### 📥 Export Analysis Results")
+
+            export_col1, export_col2 = st.columns(2)
+
+            with export_col1:
+                # Prepare comprehensive export data
+                export_data = {}
+
+                for asset_name, result in results.items():
+                    export_data[asset_name] = {
+                        'ticker': result['ticker'],
+                        'capm_alpha': result['alpha'],
+                        'capm_beta': result['beta'],
+                        'r_squared': result['model_diagnostics']['r_squared'],
+                        'capm_p_value': result['model_diagnostics']['p_value'],
+                        'observations': result['model_diagnostics']['observations'],
+                        'total_car': result['event_statistics']['total_car'],
+                        'mean_abnormal_return': result['event_statistics']['mean_ar'],
+                        'std_abnormal_return': result['event_statistics']['std_ar'],
+                        't_statistic': result['event_statistics']['t_statistic'],
+                        'abnormal_returns_p_value': result['event_statistics']['p_value'],
+                        'wilcoxon_p_value': result['event_statistics']['wilcoxon_p'],
+                        'shapiro_p_value': result['event_statistics']['shapiro_p'],
+                        'positive_days': result['event_statistics']['positive_days'],
+                        'negative_days': result['event_statistics']['negative_days']
+                    }
+
+                # Convert to JSON for download
+                export_json = json.dumps(export_data, indent=2, default=str)
+
+                st.download_button(
+                    label="📄 Download Complete Results (JSON)",
+                    data=export_json,
+                    file_name=f"event_study_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                    mime="application/json"
+                )
+
+            with export_col2:
+                # Prepare summary CSV
+                summary_csv_data = []
+                for asset_name, result in results.items():
+                    summary_csv_data.append({
+                        'Asset': asset_name,
+                        'Ticker': result['ticker'],
+                        'Alpha': result['alpha'],
+                        'Beta': result['beta'],
+                        'R_Squared': result['model_diagnostics']['r_squared'],
+                        'CAR': result['event_statistics']['total_car'],
+                        'T_Statistic': result['event_statistics']['t_statistic'],
+                        'P_Value': result['event_statistics']['p_value'],
+                        'Significant': result['event_statistics']['p_value'] < 0.05
+                    })
+
+                summary_csv = pd.DataFrame(summary_csv_data).to_csv(index=False)
+
+                st.download_button(
+                    label="📊 Download Summary (CSV)",
+                    data=summary_csv,
+                    file_name=f"event_study_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv"
+                )
+
+
+if __name__ == "__main__":
+    main()

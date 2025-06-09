@@ -1,0 +1,102 @@
+/Users/kitikovmaximyandex.ru/PycharmProjects/pythonProject/venv/bin/python /Users/kitikovmaximyandex.ru/PycharmProjects/pythonProject/main.py 
+🏛️  JP MORGAN QUANTITATIVE RESEARCH
+============================================================
+📊 Event Study Analysis: China Trade Policy Announcement
+📅 Event Date: 2025-06-02
+🎯 Assets Under Analysis: 5
+============================================================
+
+📡 STEP 1: Data Acquisition
+------------------------------
+Fetching daily data for MP Materials Corp (MP)...
+✅ MP Materials Corp: 126 daily observations
+Fetching daily data for Alibaba Group (BABA)...
+✅ Alibaba Group: 126 daily observations
+Fetching daily data for iShares Semiconductor ETF (SOXX)...
+✅ iShares Semiconductor ETF: 126 daily observations
+Fetching daily data for VanEck Vectors Semiconductor ETF (SMH)...
+✅ VanEck Vectors Semiconductor ETF: 126 daily observations
+Fetching daily data for SPDR S&P 500 ETF (SPY)...
+✅ SPDR S&P 500 ETF: 126 daily observations
+Fetching risk-free rate data...
+✅ Risk-free rate: 126 observations
+
+🕐 Fetching Intraday Data (6H intervals)...
+Fetching intraday data for MP Materials Corp...
+❌ Data processing error for MP: Missing column provided to 'parse_dates': 'timestamp'
+❌ MP Materials Corp: Failed to fetch intraday data
+Fetching intraday data for Alibaba Group...
+❌ Data processing error for BABA: Missing column provided to 'parse_dates': 'timestamp'
+❌ Alibaba Group: Failed to fetch intraday data
+Fetching intraday data for iShares Semiconductor ETF...
+❌ Data processing error for SOXX: Missing column provided to 'parse_dates': 'timestamp'
+❌ iShares Semiconductor ETF: Failed to fetch intraday data
+
+📈 STEP 2: Statistical Analysis
+------------------------------
+
+Analyzing MP Materials Corp...
+  📊 Estimation window: 120 observations
+  🎯 Event window: 4 observations
+  📈 Alpha: 0.000220, Beta: 1.0094
+  📊 R²: 0.1101, p-value: 0.0002
+  🎯 Mean AR: 2.307%
+  📈 Total CAR: 9.229%
+  🔬 t-statistic: 0.647
+  📊 p-value: 0.5635
+  🎖️ Significance: 
+
+Analyzing Alibaba Group...
+  📊 Estimation window: 120 observations
+  🎯 Event window: 4 observations
+  📈 Alpha: 0.003116, Beta: 0.7622
+  📊 R²: 0.1401, p-value: 0.0000
+  🎯 Mean AR: -1.367%
+  📈 Total CAR: -5.467%
+  🔬 t-statistic: -1.799
+  📊 p-value: 0.1698
+  🎖️ Significance: 
+
+Analyzing iShares Semiconductor ETF...
+  📊 Estimation window: 120 observations
+  🎯 Event window: 4 observations
+  📈 Alpha: 0.000324, Beta: 1.7106
+  📊 R²: 0.8296, p-value: 0.0000
+  🎯 Mean AR: -0.278%
+  📈 Total CAR: -1.110%
+  🔬 t-statistic: -0.510
+  📊 p-value: 0.6454
+  🎖️ Significance: 
+
+Analyzing VanEck Vectors Semiconductor ETF...
+  📊 Estimation window: 120 observations
+  🎯 Event window: 4 observations
+  📈 Alpha: 0.000642, Beta: 1.6377
+  📊 R²: 0.8024, p-value: 0.0000
+  🎯 Mean AR: -0.325%
+  📈 Total CAR: -1.301%
+  🔬 t-statistic: -0.704
+  📊 p-value: 0.5323
+  🎖️ Significance: 
+
+🎨 STEP 3: Professional Visualizations
+----------------------------------------
+Creating comprehensive analysis dashboard...
+Traceback (most recent call last):
+  File "/Users/kitikovmaximyandex.ru/PycharmProjects/pythonProject/main.py", line 1151, in <module>
+    main()
+  File "/Users/kitikovmaximyandex.ru/PycharmProjects/pythonProject/main.py", line 1127, in main
+    visualizer.create_comprehensive_dashboard(daily_data, intraday_data, analysis_results)
+  File "/Users/kitikovmaximyandex.ru/PycharmProjects/pythonProject/main.py", line 369, in create_comprehensive_dashboard
+    self._plot_correlation_matrix(fig, gs, data_dict)
+  File "/Users/kitikovmaximyandex.ru/PycharmProjects/pythonProject/main.py", line 513, in _plot_correlation_matrix
+    returns_df = pd.DataFrame(returns_data)
+  File "/Users/kitikovmaximyandex.ru/PycharmProjects/pythonProject/venv/lib/python3.9/site-packages/pandas/core/frame.py", line 778, in __init__
+    mgr = dict_to_mgr(data, index, columns, dtype=dtype, copy=copy, typ=manager)
+  File "/Users/kitikovmaximyandex.ru/PycharmProjects/pythonProject/venv/lib/python3.9/site-packages/pandas/core/internals/construction.py", line 503, in dict_to_mgr
+    return arrays_to_mgr(arrays, columns, index, dtype=dtype, typ=typ, consolidate=copy)
+  File "/Users/kitikovmaximyandex.ru/PycharmProjects/pythonProject/venv/lib/python3.9/site-packages/pandas/core/internals/construction.py", line 114, in arrays_to_mgr
+    index = _extract_index(arrays)
+  File "/Users/kitikovmaximyandex.ru/PycharmProjects/pythonProject/venv/lib/python3.9/site-packages/pandas/core/internals/construction.py", line 667, in _extract_index
+    raise ValueError("If using all scalar values, you must pass an index")
+ValueError: If using all scalar values, you must pass an index

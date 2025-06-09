@@ -1,0 +1,97 @@
+TASK:
+Please review, debug, and fully fix the Event Study chart for S&P 500 on June 2, 2025, based on the latest real market data and modeling assumptions. The current chart incorrectly shows abnormal return (AR) = –0.137%, while actual market data from June 2, 2025, shows positive return of +0.4% (S&P 500 closed at 5935.94). This misalignment likely indicates either a modeling issue or reference benchmark error.
+
+OBJECTIVES:
+
+✅ Fix AR / CAR Calculation:
+
+Recalculate daily AR (%) using CAPM:
+
+𝐴
+𝑅
+𝑡
+=
+𝑅
+𝑡
+−
+(
+𝑅
+𝑓
++
+𝛽
+⋅
+(
+𝑅
+𝑚
+−
+𝑅
+𝑓
+)
+)
+AR 
+t
+​
+ =R 
+t
+​
+ −(R 
+f
+​
+ +β⋅(R 
+m
+​
+ −R 
+f
+​
+ ))
+Use a realistic risk-free rate (e.g., 5.1% / 252 daily) and appropriate β for S&P 500 (≈ 1.0).
+
+Ensure correct expected return baseline is used.
+
+Check that the model pulls correct market return (R_m) and actual asset return (R_t) from Yahoo Finance.
+
+✅ Fix Cumulative AR (CAR):
+
+Recalculate CAR as the sum of ARs across the proper event window (e.g., [May 31, 2025 → June 3, 2025]).
+
+Current CAR appears inconsistent with the actual movement.
+
+✅ Correct Date Labels / Event Annotations:
+
+Verify that June 2, 2025 is accurately labeled and the "Event Day" marker corresponds to the correct bar.
+
+Ensure the highlighted event window and orange vertical line match the AR plotted.
+
+✅ Update Plotly or Matplotlib Chart:
+
+Ensure the visual AR bar matches recalculated AR.
+
+Ensure the CAR line and volatility line are scaled correctly and updated.
+
+Check units: AR and CAR should be shown in % with 2 decimal points.
+
+✅ Add a short summary statement below the chart:
+Based on the updated modeling, include a 2–3 sentence realistic interpretation of the S&P 500 movement post-shock, such as:
+
+“Despite the geopolitical shock on June 2, 2025 involving U.S.–China trade tensions, the S&P 500 recovered intraday, closing up 0.4%. The abnormal return was slightly positive (+0.02%), suggesting the market may have priced in the risk earlier, or expected limited short-term impact on core S&P constituents.”
+
+NOTES FOR AI:
+
+Pull real S&P 500 price from Yahoo Finance or yfinance API on:
+
+May 31, 2025
+
+June 2, 2025
+
+June 3, 2025
+
+Re-validate whether the event actually triggered a significant return deviation or not.
+
+Include a print() of the AR and CAR values in the console if possible.
+
+Clarify in the footer if the reaction is statistically significant.
+
+If the output is correct, generate the updated chart and summary and replace the previous one.
+
+📌 You may also suggest how to automatically prevent such misalignment in the future (e.g., by implementing a validation step to compare actual return with abnormal return after calculation).
+

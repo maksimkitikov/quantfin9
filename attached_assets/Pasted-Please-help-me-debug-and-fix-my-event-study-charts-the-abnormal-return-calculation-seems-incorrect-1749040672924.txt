@@ -1,0 +1,63 @@
+Please help me debug and fix my event study charts — the abnormal return calculation seems incorrect.
+
+🔍 CONTEXT
+I'm analyzing the June 2, 2025 U.S.–China Trade Shock using an event study model on S&P 500 data.
+
+However, on the graph:
+
+The Daily Abnormal Return (AR) on June 2 is shown as −0.1531%
+
+But real market data shows S&P 500 actually closed +0.4% up on that day.
+
+So, the model output contradicts actual price movement.
+This suggests a problem in how expected returns are being computed, or in the overall CAPM implementation.
+
+✅ TASK: Fix the following issues
+1. Recalculate Expected Return using CAPM properly:
+python
+Copy
+Edit
+Expected_Return = Rf + Beta * (Rm - Rf)
+Use real daily data for:
+
+Rf = daily risk-free rate (e.g., from 13-week Treasury)
+
+Rm = market return, use a relevant benchmark (e.g., ^GSPC itself or a total market index)
+
+Beta = estimate from regression over 60 prior trading days
+
+✅ Check whether you're wrongly calculating expected returns using cumulative averages or mismatched windows.
+
+2. Ensure model uses correct daily S&P 500 prices
+Use adjusted close prices (or regular close if auto_adjust=True)
+
+Example:
+
+python
+Copy
+Edit
+data = yf.download("^GSPC", start="2025-05-01", end="2025-06-05", auto_adjust=True)
+3. Verify Abnormal Return formula
+python
+Copy
+Edit
+Abnormal_Return = Actual_Return - Expected_Return
+✅ Make sure you're comparing daily percentage returns, not price differences.
+
+4. Double-check alignment of dates and windows
+Make sure the event date = 2025-06-02
+
+Event window = from May 31 to June 4
+
+Estimation window for beta = at least 60 trading days before May 31
+
+5. Fix plotting labels and consistency
+The graph shows AR = −0.15% while actual S&P500 rose +0.4%
+
+That mismatch means the CAPM-predicted return is even higher, which is highly unlikely.
+
+Fix logic error if Expected > Actual when market clearly moved up.
+
+6. Add annotation explaining most likely causes
+"On June 2, 2025, S&P 500 rose +0.4% despite geopolitical tensions. The model initially detected a negative AR due to flawed estimation of expected returns. After correcting the CAPM inputs and aligning data windows, the AR was recalculated to match real-world movement."
+

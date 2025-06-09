@@ -1,0 +1,1323 @@
+я хочу чтобы ты сделал QUANTITATIVE finance project просто показал графики и результаты с парметрами - QUANTITATIVE EVENT STUDY ANALYSIS - JP MORGAN DATA SCIENCE LEVEL с Advanced Market Microstructure & High-Frequency Event Impact Analysis используя этот код но не сильно его изменяй но в нем ошибки и должен их исправить и сделать максимамум так как Our goal? To show you exactly how quant finance is used in real life — during real shocks — with: • Actual trading data • Market models like CAPM • Python-powered analytics • Clear visuals and live interpretation 🔁 This project will be interactive. We’ll walk you through the entire process — from defining the event and gathering data, to modeling abnormal returns and interpreting the results. This isn’t theory. This is how financial research works at speed. Professional-grade event study implementation featuring: * Multi-timeframe analysis (6H, 1H, 30min intervals) * Advanced statistical testing (t-tests, Mann-Whitney U, Kolmogorov-Smirnov) * Market microstructure metrics (bid-ask spreads, volume profiles) * GARCH volatility modeling * Interactive visualizations with statistical confidence intervals * Risk-adjusted performance metrics [server]
+headless = true
+address = "0.0.0.0"
+port = 5000
+
+[theme]
+base = "light"
+import streamlit as st
+import pandas as pd
+import numpy as np
+import warnings
+warnings.filterwarnings("ignore")
+
+from event_study_analyzer import EventStudyConfig, EventStudyAnalyzer
+from market_data_provider import MarketDataProvider
+from visualization_engine import VisualizationEngine
+from statistical_tests import StatisticalTestSuite
+
+Configure page
+st.set_page_config(
+page_title="Quantitative Event Study Analysis",
+page_icon="📈",
+layout="wide",
+initial_sidebar_state="expanded"
+)
+
+Custom CSS for professional styling
+st.markdown("""
+
+<style> .main-header { font-size: 2.5rem; color: #1f77b4; text-align: center; margin-bottom: 2rem; } .sub-header { font-size: 1.5rem; color: #2c3e50; margin-bottom: 1rem; } .metric-card { background-color: #f8f9fa; padding: 1rem; border-radius: 0.5rem; border-left: 4px solid #1f77b4; } .stAlert { margin-top: 1rem; } </style>
+""", unsafe_allow_html=True)
+
+def main():
+# Title and description
+st.markdown('<h1 class="main-header">🏦 Quantitative Event Study Analysis</h1>', unsafe_allow_html=True)
+st.markdown('<h2 class="sub-header">JP Morgan Data Science Level - Advanced Market Microstructure Analysis</h2>', unsafe_allow_html=True)
+
+st.markdown("""
+**Professional-grade event study implementation featuring:**
+- Multi-timeframe analysis (6H, 1H, 30min intervals)
+- Advanced statistical testing (t-tests, Mann-Whitney U, Kolmogorov-Smirnov)
+- Market microstructure metrics (bid-ask spreads, volume profiles)
+- GARCH volatility modeling
+- Interactive visualizations with statistical confidence intervals
+- Risk-adjusted performance metrics
+""")
+# Initialize session state
+if 'analysis_complete' not in st.session_state:
+    st.session_state.analysis_complete = False
+if 'results_data' not in st.session_state:
+    st.session_state.results_data = {}
+# Sidebar configuration
+with st.sidebar:
+    st.header("📊 Analysis Configuration")
+    
+    # Event configuration
+    st.subheader("Event Parameters")
+    event_name = st.text_input("Event Name", value="China Trade Policy Announcement")
+    event_date = st.date_input("Event Date", value=pd.Timestamp("2025-06-02").date())
+    
+    # Window parameters
+    st.subheader("Analysis Windows")
+    estimation_window = st.slider("Estimation Window (days)", 60, 200, 120)
+    pre_event_window = st.slider("Pre-Event Window (days)", 1, 10, 3)
+    post_event_window = st.slider("Post-Event Window (days)", 1, 10, 3)
+    
+    # Asset selection
+    st.subheader("Assets Under Analysis")
+    default_assets = {
+        "MP Materials Corp": "MP",
+        "Alibaba Group": "BABA",
+        "iShares Semiconductor ETF": "SOXX",
+        "VanEck Vectors Semiconductor ETF": "SMH",
+        "SPDR S&P 500 ETF": "SPY"
+    }
+    
+    selected_assets = {}
+    for name, ticker in default_assets.items():
+        if st.checkbox(f"{name} ({ticker})", value=True):
+            selected_assets[name] = ticker
+    
+    # API Configuration
+    st.subheader("API Configuration")
+    alpha_api_key = st.text_input("Alpha Vantage API Key", 
+                                value=st.secrets.get("ALPHA_VANTAGE_API_KEY", "demo"),
+                                type="password")
+    
+    # Analysis intervals
+    st.subheader("Analysis Intervals")
+    intervals = st.multiselect("Select Intervals", 
+                             ["60min", "30min", "15min"], 
+                             default=["60min", "30min"])
+    
+    # Statistical parameters
+    st.subheader("Statistical Parameters")
+    confidence_level = st.slider("Confidence Level", 0.90, 0.99, 0.95, 0.01)
+    
+    # Run analysis button
+    run_analysis = st.button("🚀 Run Event Study Analysis", type="primary")
+# Main content area
+if run_analysis and selected_assets:
+    with st.spinner("🔄 Performing quantitative analysis..."):
+        try:
+            # Create configuration
+            config = EventStudyConfig()
+            config.event_date = pd.Timestamp(event_date)
+            config.event_name = event_name
+            config.estimation_window = estimation_window
+            config.pre_event_window = pre_event_window
+            config.post_event_window = post_event_window
+            config.assets = selected_assets
+            config.alpha_api_key = alpha_api_key
+            config.intervals = intervals
+            config.confidence_level = confidence_level
+            
+            # Initialize components
+            data_provider = MarketDataProvider(config)
+            analyzer = EventStudyAnalyzer(config)
+            visualizer = VisualizationEngine(config)
+            test_suite = StatisticalTestSuite(config)
+            
+            # Fetch market data
+            st.info("📡 Fetching market data...")
+            market_data = {}
+            risk_free_data = None
+            
+            # Download data for each asset
+            for name, ticker in selected_assets.items():
+                data = data_provider.fetch_daily_data(ticker)
+                if data is not None and not data.empty:
+                    market_data[name] = data
+                    st.success(f"✅ Successfully fetched data for {name} ({ticker})")
+                else:
+                    st.warning(f"⚠️ Failed to fetch data for {name} ({ticker})")
+            
+            # Fetch risk-free rate
+            rf_data = data_provider.fetch_daily_data(config.risk_free_ticker)
+            if rf_data is not None and not rf_data.empty:
+                risk_free_data = pd.DataFrame({'RiskFree': rf_data['Adj Close']})
+                st.success("✅ Successfully fetched risk-free rate data")
+            
+            if not market_data:
+                st.error("❌ No market data available. Please check your asset selection and try again.")
+                return
+            
+            # Prepare returns data
+            st.info("🔢 Calculating returns and preparing data...")
+            returns_data = analyzer.prepare_returns_data(market_data, risk_free_data)
+            
+            # Perform event study analysis
+            st.info("📊 Performing event study analysis...")
+            analysis_results = {}
+            
+            # Get market benchmark (SPY)
+            market_returns = returns_data.get("SPDR S&P 500 ETF") or returns_data.get(list(returns_data.keys())[0])
+            
+            for asset_name, returns_df in returns_data.items():
+                if asset_name == "SPDR S&P 500 ETF":
+                    continue  # Skip market benchmark in individual analysis
+                
+                try:
+                    # Define analysis windows
+                    estimation_window_data, event_window_data = analyzer.define_analysis_windows(returns_df)
+                    
+                    # CAPM analysis
+                    alpha, beta, diagnostics = analyzer.enhanced_capm_analysis(estimation_window_data, market_returns)
+                    
+                    if alpha is not None and beta is not None:
+                        # Calculate abnormal returns
+                        abnormal_results, ar_stats = analyzer.calculate_abnormal_returns(
+                            event_window_data, alpha, beta, market_returns
+                        )
+                        
+                        analysis_results[asset_name] = {
+                            'alpha': alpha,
+                            'beta': beta,
+                            'diagnostics': diagnostics,
+                            'abnormal_returns': abnormal_results,
+                            'ar_statistics': ar_stats,
+                            'estimation_window': estimation_window_data,
+                            'event_window': event_window_data
+                        }
+                        
+                        st.success(f"✅ Completed analysis for {asset_name}")
+                    else:
+                        st.warning(f"⚠️ Insufficient data for CAPM analysis: {asset_name}")
+                        
+                except Exception as e:
+                    st.error(f"❌ Error analyzing {asset_name}: {str(e)}")
+            
+            # Store results in session state
+            st.session_state.results_data = {
+                'analysis_results': analysis_results,
+                'market_data': market_data,
+                'returns_data': returns_data,
+                'config': config,
+                'market_returns': market_returns
+            }
+            st.session_state.analysis_complete = True
+            
+            st.success("🎉 Event study analysis completed successfully!")
+            
+        except Exception as e:
+            st.error(f"❌ Error during analysis: {str(e)}")
+            st.exception(e)
+# Display results if analysis is complete
+if st.session_state.analysis_complete and st.session_state.results_data:
+    display_results()
+def display_results():
+"""Display comprehensive analysis results"""
+results_data = st.session_state.results_data
+analysis_results = results_data['analysis_results']
+config = results_data['config']
+
+if not analysis_results:
+    st.warning("⚠️ No analysis results available. Please run the analysis first.")
+    return
+# Create tabs for different views
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📊 Summary Statistics", 
+    "📈 Abnormal Returns", 
+    "📉 Market Microstructure", 
+    "🔬 Statistical Tests", 
+    "📋 Detailed Results"
+])
+with tab1:
+    display_summary_statistics(analysis_results, config)
+with tab2:
+    display_abnormal_returns_analysis(analysis_results, config)
+with tab3:
+    display_market_microstructure(results_data)
+with tab4:
+    display_statistical_tests(analysis_results, config)
+with tab5:
+    display_detailed_results(analysis_results, config)
+def display_summary_statistics(analysis_results, config):
+"""Display summary statistics dashboard"""
+st.markdown('<h2 class="sub-header">📊 Event Study Summary Statistics</h2>', unsafe_allow_html=True)
+
+# Key metrics overview
+col1, col2, col3, col4 = st.columns(4)
+total_assets = len(analysis_results)
+significant_cars = sum(1 for result in analysis_results.values() 
+                      if result['ar_statistics']['p_value'] < 0.05)
+avg_car = np.mean([result['ar_statistics']['car_total'] 
+                  for result in analysis_results.values()])
+max_car = max([result['ar_statistics']['car_total'] 
+              for result in analysis_results.values()])
+with col1:
+    st.metric("Assets Analyzed", total_assets)
+with col2:
+    st.metric("Significant CARs", f"{significant_cars}/{total_assets}")
+with col3:
+    st.metric("Average CAR", f"{avg_car:.4f}")
+with col4:
+    st.metric("Maximum CAR", f"{max_car:.4f}")
+# Summary table
+st.subheader("Asset-Level Summary")
+summary_data = []
+for asset_name, result in analysis_results.items():
+    summary_data.append({
+        'Asset': asset_name,
+        'Alpha': f"{result['alpha']:.6f}",
+        'Beta': f"{result['beta']:.4f}",
+        'R²': f"{result['diagnostics']['r_squared']:.4f}",
+        'CAR': f"{result['ar_statistics']['car_total']:.4f}",
+        'T-Statistic': f"{result['ar_statistics']['t_statistic']:.4f}",
+        'P-Value': f"{result['ar_statistics']['p_value']:.4f}",
+        'Significant': "✅" if result['ar_statistics']['p_value'] < 0.05 else "❌"
+    })
+summary_df = pd.DataFrame(summary_data)
+st.dataframe(summary_df, use_container_width=True)
+def display_abnormal_returns_analysis(analysis_results, config):
+"""Display abnormal returns analysis and visualizations"""
+st.markdown('<h2 class="sub-header">📈 Abnormal Returns Analysis</h2>', unsafe_allow_html=True)
+
+# Initialize visualization engine
+visualizer = VisualizationEngine(config)
+# Asset selection for detailed view
+asset_names = list(analysis_results.keys())
+selected_asset = st.selectbox("Select Asset for Detailed Analysis", asset_names)
+if selected_asset and selected_asset in analysis_results:
+    result = analysis_results[selected_asset]
+    
+    # Display key metrics
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Cumulative Abnormal Return", 
+                 f"{result['ar_statistics']['car_total']:.4f}")
+    with col2:
+        st.metric("Average Daily AR", 
+                 f"{result['ar_statistics']['mean_ar']:.4f}")
+    with col3:
+        st.metric("Statistical Significance", 
+                 "Significant" if result['ar_statistics']['p_value'] < 0.05 else "Not Significant")
+    
+    # Abnormal returns chart
+    if result['abnormal_returns'] is not None:
+        fig = visualizer.create_abnormal_returns_chart(
+            result['abnormal_returns'], 
+            selected_asset
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # CAR evolution chart
+    if result['abnormal_returns'] is not None:
+        fig_car = visualizer.create_car_evolution_chart(
+            result['abnormal_returns'], 
+            selected_asset
+        )
+        st.plotly_chart(fig_car, use_container_width=True)
+# Cross-asset comparison
+st.subheader("Cross-Asset CAR Comparison")
+fig_comparison = visualizer.create_cross_asset_comparison(analysis_results)
+st.plotly_chart(fig_comparison, use_container_width=True)
+def display_market_microstructure(results_data):
+"""Display market microstructure analysis"""
+st.markdown('<h2 class="sub-header">📉 Market Microstructure Analysis</h2>', unsafe_allow_html=True)
+
+market_data = results_data['market_data']
+config = results_data['config']
+# Initialize data provider for microstructure metrics
+data_provider = MarketDataProvider(config)
+visualizer = VisualizationEngine(config)
+# Asset selection
+asset_names = list(market_data.keys())
+selected_asset = st.selectbox("Select Asset for Microstructure Analysis", 
+                            asset_names, key="microstructure_asset")
+if selected_asset and selected_asset in market_data:
+    asset_data = market_data[selected_asset].copy()
+    
+    # Calculate microstructure metrics
+    asset_data = data_provider.calculate_market_microstructure_metrics(asset_data)
+    
+    # Display metrics around event date
+    event_window_start = config.event_date - pd.Timedelta(days=5)
+    event_window_end = config.event_date + pd.Timedelta(days=5)
+    event_data = asset_data.loc[event_window_start:event_window_end]
+    
+    if not event_data.empty:
+        # Key microstructure metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            avg_spread = event_data['HL_Spread'].mean()
+            st.metric("Avg HL Spread", f"{avg_spread:.4f}")
+        
+        with col2:
+            avg_volume_ratio = event_data['VolumeRatio'].mean()
+            st.metric("Avg Volume Ratio", f"{avg_volume_ratio:.2f}")
+        
+        with col3:
+            avg_volatility = event_data['RealizedVolatility'].mean()
+            st.metric("Realized Volatility", f"{avg_volatility:.4f}")
+        
+        with col4:
+            current_rsi = event_data['RSI'].iloc[-1] if 'RSI' in event_data.columns else 0
+            st.metric("Current RSI", f"{current_rsi:.2f}")
+        
+        # Microstructure charts
+        fig_volume = visualizer.create_volume_profile_chart(event_data, selected_asset)
+        st.plotly_chart(fig_volume, use_container_width=True)
+        
+        # Technical indicators
+        fig_tech = visualizer.create_technical_indicators_chart(event_data, selected_asset)
+        st.plotly_chart(fig_tech, use_container_width=True)
+def display_statistical_tests(analysis_results, config):
+"""Display comprehensive statistical test results"""
+st.markdown('<h2 class="sub-header">🔬 Advanced Statistical Tests</h2>', unsafe_allow_html=True)
+
+# Initialize statistical test suite
+test_suite = StatisticalTestSuite(config)
+# Run statistical tests for each asset
+for asset_name, result in analysis_results.items():
+    if result['abnormal_returns'] is None:
+        continue
+        
+    st.subheader(f"Statistical Tests - {asset_name}")
+    
+    abnormal_returns = result['abnormal_returns']['AbnormalReturn'].values
+    
+    # Perform tests
+    test_results = test_suite.run_comprehensive_tests(abnormal_returns)
+    
+    # Display test results
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**Normality Tests**")
+        st.write(f"Shapiro-Wilk p-value: {test_results['shapiro_pvalue']:.6f}")
+        st.write(f"Jarque-Bera p-value: {test_results['jarque_bera_pvalue']:.6f}")
+        
+        st.markdown("**Significance Tests**")
+        st.write(f"T-test p-value: {test_results['ttest_pvalue']:.6f}")
+        st.write(f"Wilcoxon p-value: {test_results['wilcoxon_pvalue']:.6f}")
+    
+    with col2:
+        st.markdown("**Distribution Tests**")
+        st.write(f"Mann-Whitney U p-value: {test_results['mannwhitney_pvalue']:.6f}")
+        st.write(f"Kolmogorov-Smirnov p-value: {test_results['ks_pvalue']:.6f}")
+        
+        st.markdown("**Variance Tests**")
+        st.write(f"Levene Test p-value: {test_results['levene_pvalue']:.6f}")
+    
+    # Interpretation
+    significant_tests = sum(1 for p in [
+        test_results['ttest_pvalue'],
+        test_results['wilcoxon_pvalue'],
+        test_results['mannwhitney_pvalue']
+    ] if p < 0.05)
+    
+    if significant_tests >= 2:
+        st.success("✅ Strong evidence of significant abnormal returns")
+    elif significant_tests == 1:
+        st.warning("⚠️ Moderate evidence of abnormal returns")
+    else:
+        st.info("ℹ️ Limited evidence of significant abnormal returns")
+    
+    st.divider()
+def display_detailed_results(analysis_results, config):
+"""Display detailed analysis results and diagnostics"""
+st.markdown('<h2 class="sub-header">📋 Detailed Analysis Results</h2>', unsafe_allow_html=True)
+
+# Asset selection
+asset_names = list(analysis_results.keys())
+selected_asset = st.selectbox("Select Asset for Detailed Results", 
+                            asset_names, key="detailed_asset")
+if selected_asset and selected_asset in analysis_results:
+    result = analysis_results[selected_asset]
+    
+    # CAPM Diagnostics
+    st.subheader("CAPM Model Diagnostics")
+    diagnostics = result['diagnostics']
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**Model Parameters**")
+        st.write(f"Alpha (α): {diagnostics['alpha']:.6f}")
+        st.write(f"Beta (β): {diagnostics['beta']:.4f}")
+        st.write(f"R-squared: {diagnostics['r_squared']:.4f}")
+        st.write(f"Observations: {diagnostics['observations']}")
+    
+    with col2:
+        st.markdown("**Statistical Tests**")
+        st.write(f"Beta p-value: {diagnostics['p_value']:.6f}")
+        st.write(f"Beta std error: {diagnostics['std_error_beta']:.6f}")
+        st.write(f"Durbin-Watson: {diagnostics['durbin_watson']:.4f}")
+        st.write(f"Residual std: {diagnostics['residual_std']:.6f}")
+    
+    # Model quality assessment
+    st.markdown("**Model Quality Assessment**")
+    quality_score = 0
+    if diagnostics['r_squared'] > 0.3:
+        quality_score += 1
+        st.write("✅ Good explanatory power (R² > 0.3)")
+    else:
+        st.write("⚠️ Low explanatory power (R² ≤ 0.3)")
+    
+    if diagnostics['p_value'] < 0.05:
+        quality_score += 1
+        st.write("✅ Statistically significant beta")
+    else:
+        st.write("⚠️ Beta not statistically significant")
+    
+    if 1.5 <= diagnostics['durbin_watson'] <= 2.5:
+        quality_score += 1
+        st.write("✅ No significant autocorrelation")
+    else:
+        st.write("⚠️ Potential autocorrelation in residuals")
+    
+    # Overall assessment
+    if quality_score >= 2:
+        st.success("🎯 High-quality CAPM model")
+    elif quality_score == 1:
+        st.warning("⚠️ Moderate-quality CAPM model")
+    else:
+        st.error("❌ Low-quality CAPM model - interpret results with caution")
+    
+    # Raw data display
+    st.subheader("Abnormal Returns Data")
+    if result['abnormal_returns'] is not None:
+        st.dataframe(result['abnormal_returns'], use_container_width=True)
+    
+    # Download results
+    if st.button("📥 Download Analysis Results", key=f"download_{selected_asset}"):
+        # Prepare download data
+        download_data = {
+            'asset': selected_asset,
+            'diagnostics': diagnostics,
+            'ar_statistics': result['ar_statistics'],
+            'abnormal_returns': result['abnormal_returns'].to_dict() if result['abnormal_returns'] is not None else None
+        }
+        
+        st.download_button(
+            label="Download JSON",
+            data=pd.Series(download_data).to_json(),
+            file_name=f"{selected_asset}_event_study_results.json",
+            mime="application/json"
+        )
+if name == "main":
+main()
+import pandas as pd
+import numpy as np
+from scipy import stats
+from statsmodels.tsa.stattools import adfuller
+from pandas.tseries.offsets import BDay
+import warnings
+warnings.filterwarnings("ignore")
+
+class EventStudyConfig:
+"""Professional configuration class for event study parameters"""
+
+def __init__(self):
+    # Event Definition
+    self.event_date = pd.Timestamp("2025-06-02")
+    self.event_name = "China Trade Policy Announcement"
+    # Analysis Windows
+    self.estimation_window = 120  # Extended for better parameter estimation
+    self.pre_event_window = 3
+    self.post_event_window = 3
+    # Assets Under Analysis
+    self.assets = {
+        "MP Materials Corp": "MP",
+        "Alibaba Group": "BABA",
+        "iShares Semiconductor ETF": "SOXX",
+        "VanEck Vectors Semiconductor ETF": "SMH",
+        "SPDR S&P 500 ETF": "SPY"  # Market benchmark
+    }
+    # Market Data Configuration
+    self.risk_free_ticker = "^IRX"
+    self.alpha_api_key = "demo"
+    self.intervals = ["60min", "30min", "15min"]
+    # Statistical Parameters
+    self.confidence_level = 0.95
+    self.significance_level = 0.05
+def get_date_range(self):
+    """Calculate optimal date range for analysis"""
+    start = (self.event_date - BDay(self.estimation_window + self.pre_event_window + 10))
+    end = (self.event_date + BDay(self.post_event_window + 10))
+    return start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
+class EventStudyAnalyzer:
+"""Professional-grade event study statistical analysis"""
+
+def __init__(self, config):
+    self.config = config
+    self.results = {}
+def prepare_returns_data(self, data_dict, rf_data):
+    """Prepare and align return series with risk-free rate"""
+    returns = {}
+    
+    # Handle risk-free rate data
+    if rf_data is not None and not rf_data.empty:
+        rf_series = (rf_data['RiskFree'] / 100 / 252).fillna(method='ffill')
+    else:
+        # Create dummy risk-free rate if not available
+        rf_series = pd.Series(0.02/252, index=pd.date_range(start='2020-01-01', end='2030-12-31', freq='D'))
+    for name, df in data_dict.items():
+        if df is None or df.empty:
+            continue
+        # Calculate returns
+        df_returns = pd.DataFrame(index=df.index)
+        df_returns['Return'] = df['Adj Close'].pct_change()
+        df_returns['Volume'] = df['Volume']
+        df_returns = df_returns.dropna()
+        # Align risk-free rate
+        rf_aligned = rf_series.reindex(df_returns.index, method='ffill').fillna(0.02/252)
+        df_returns['RiskFree'] = rf_aligned
+        df_returns['ExcessReturn'] = df_returns['Return'] - df_returns['RiskFree']
+        returns[name] = df_returns
+    return returns
+def define_analysis_windows(self, returns_df):
+    """Define estimation and event windows with precision"""
+    try:
+        event_idx = returns_df.index.get_indexer([self.config.event_date], method='nearest')[0]
+    except:
+        # If exact date not found, use closest business day
+        business_days = pd.bdate_range(start=returns_df.index[0], end=returns_df.index[-1])
+        if len(business_days) > 0:
+            closest_date = business_days[business_days.get_indexer([self.config.event_date], method='nearest')[0]]
+            event_idx = returns_df.index.get_indexer([closest_date], method='nearest')[0]
+        else:
+            event_idx = len(returns_df) // 2  # Use middle as fallback
+    # Define windows with bounds checking
+    est_start = max(0, event_idx - self.config.estimation_window - self.config.pre_event_window)
+    est_end = max(est_start + 30, event_idx - self.config.pre_event_window)  # Ensure minimum window
+    event_start = event_idx - self.config.pre_event_window
+    event_end = min(len(returns_df) - 1, event_idx + self.config.post_event_window)
+    estimation_window = returns_df.iloc[est_start:est_end]
+    event_window = returns_df.iloc[event_start:event_end + 1]
+    return estimation_window, event_window
+def enhanced_capm_analysis(self, estimation_df, market_returns):
+    """Enhanced CAPM with diagnostics and robustness checks"""
+    if market_returns is None or estimation_df.empty or market_returns.empty:
+        return None, None, {}
+    # Align data
+    aligned_data = pd.concat([
+        estimation_df['ExcessReturn'],
+        market_returns['ExcessReturn']
+    ], axis=1, join='inner')
+    aligned_data.columns = ['Asset', 'Market']
+    aligned_data.dropna(inplace=True)
+    if len(aligned_data) < 30:  # Minimum observations for reliable estimation
+        return None, None, {}
+    # Main regression
+    y = aligned_data['Asset'].values
+    x = aligned_data['Market'].values
+    # Handle edge cases
+    if np.std(x) == 0 or np.std(y) == 0:
+        return None, None, {}
+    # Calculate beta and alpha
+    try:
+        slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+    except:
+        return None, None, {}
+    # Enhanced diagnostics
+    residuals = y - (intercept + slope * x)
+    diagnostics = {
+        'alpha': intercept,
+        'beta': slope,
+        'r_squared': r_value ** 2,
+        'p_value': p_value,
+        'std_error_beta': std_err,
+        'observations': len(aligned_data),
+        'residual_std': np.std(residuals),
+        'durbin_watson': self._durbin_watson_test(residuals),
+        'jarque_bera_pvalue': stats.jarque_bera(residuals)[1] if len(residuals) > 3 else np.nan,
+        'adf_pvalue': adfuller(residuals)[1] if len(residuals) > 12 else np.nan
+    }
+    return intercept, slope, diagnostics
+def _durbin_watson_test(self, residuals):
+    """Calculate Durbin-Watson statistic for autocorrelation"""
+    if len(residuals) < 2:
+        return np.nan
+    diff_residuals = np.diff(residuals)
+    return np.sum(diff_residuals ** 2) / np.sum(residuals ** 2)
+def calculate_abnormal_returns(self, event_df, alpha, beta, market_returns):
+    """Calculate abnormal returns with statistical significance tests"""
+    if market_returns is None or event_df.empty or market_returns.empty:
+        return None, {}
+    # Align event window data
+    aligned_data = pd.concat([
+        event_df['ExcessReturn'],
+        market_returns['ExcessReturn']
+    ], axis=1, join='inner')
+    aligned_data.columns = ['Asset', 'Market']
+    aligned_data.dropna(inplace=True)
+    if aligned_data.empty:
+        return None, {}
+    # Calculate expected and abnormal returns
+    expected_returns = alpha + beta * aligned_data['Market']
+    abnormal_returns = aligned_data['Asset'] - expected_returns
+    # Calculate cumulative abnormal returns
+    car = abnormal_returns.cumsum()
+    # Statistical tests
+    ar_mean = abnormal_returns.mean()
+    ar_std = abnormal_returns.std()
+    
+    if ar_std > 0 and len(abnormal_returns) > 1:
+        t_stat = ar_mean / (ar_std / np.sqrt(len(abnormal_returns)))
+        p_value = 2 * (1 - stats.t.cdf(abs(t_stat), len(abnormal_returns) - 1))
+    else:
+        t_stat = 0
+        p_value = 1.0
+    results_df = pd.DataFrame({
+        'Date': aligned_data.index,
+        'AssetReturn': aligned_data['Asset'],
+        'ExpectedReturn': expected_returns,
+        'AbnormalReturn': abnormal_returns,
+        'CAR': car
+    }).set_index('Date')
+    # Additional statistics
+    stats_dict = {
+        'mean_ar': ar_mean,
+        'std_ar': ar_std,
+        't_statistic': t_stat,
+        'p_value': p_value,
+        'car_total': car.iloc[-1] if len(car) > 0 else 0,
+        'positive_ar_ratio': (abnormal_returns > 0).mean(),
+        'max_car': car.max() if len(car) > 0 else 0,
+        'min_car': car.min() if len(car) > 0 else 0
+    }
+    return results_df, stats_dict
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import requests
+import io
+from datetime import datetime, timedelta
+import warnings
+warnings.filterwarnings("ignore")
+
+class MarketDataProvider:
+"""Professional market data acquisition and preprocessing"""
+
+def __init__(self, config):
+    self.config = config
+    self.start_date, self.end_date = config.get_date_range()
+def fetch_daily_data(self, ticker):
+    """Enhanced daily data fetch with error handling"""
+    try:
+        data = yf.download(ticker, start=self.start_date, end=self.end_date,
+                           auto_adjust=False, progress=False)
+        if data.empty:
+            raise ValueError(f"No data available for {ticker}")
+        
+        # Ensure we have required columns
+        required_columns = ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume']
+        for col in required_columns:
+            if col not in data.columns:
+                if col == 'Adj Close' and 'Close' in data.columns:
+                    data['Adj Close'] = data['Close']
+                else:
+                    raise ValueError(f"Missing required column: {col}")
+        
+        return data
+    except Exception as e:
+        print(f"❌ Error fetching {ticker}: {str(e)}")
+        return None
+def fetch_intraday_data(self, symbol, interval="60min"):
+    """Professional intraday data acquisition with robust error handling"""
+    url = (f"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY"
+           f"&symbol={symbol}&interval={interval}&outputsize=full"
+           f"&datatype=csv&apikey={self.config.alpha_api_key}")
+    try:
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        # Check if we got an error message instead of data
+        content = response.text
+        if "Error Message" in content or "Note:" in content:
+            print(f"❌ API error for {symbol}: Rate limit or invalid request")
+            return None
+        # Parse CSV data
+        df = pd.read_csv(io.StringIO(content), parse_dates=['timestamp'])
+        df.set_index('timestamp', inplace=True)
+        df = df.sort_index()
+        # Standardize column names
+        df.columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+        df = df.apply(pd.to_numeric, errors='coerce')
+        df.dropna(inplace=True)
+        # Filter to event window ±5 days for intraday analysis
+        event_start = self.config.event_date - timedelta(days=5)
+        event_end = self.config.event_date + timedelta(days=5)
+        df = df.loc[event_start:event_end]
+        return df
+    except requests.exceptions.RequestException as e:
+        print(f"❌ API request failed for {symbol}: {str(e)}")
+        return None
+    except Exception as e:
+        print(f"❌ Data processing error for {symbol}: {str(e)}")
+        return None
+def calculate_market_microstructure_metrics(self, df):
+    """Calculate advanced market microstructure indicators"""
+    if df is None or df.empty:
+        return df
+    df = df.copy()
+    # Price-based metrics
+    df['Returns'] = df['Close'].pct_change()
+    df['LogReturns'] = np.log(df['Close'] / df['Close'].shift(1))
+    df['RealizedVolatility'] = df['Returns'].rolling(window=20, min_periods=5).std() * np.sqrt(252)
+    # Volume-based metrics
+    df['VolumeMA'] = df['Volume'].rolling(window=20, min_periods=5).mean()
+    df['VolumeRatio'] = df['Volume'] / df['VolumeMA']
+    df['VolumeRatio'] = df['VolumeRatio'].fillna(1.0)  # Fill NaN with neutral value
+    # High-Low spread proxy (bid-ask spread approximation)
+    df['HL_Spread'] = (df['High'] - df['Low']) / df['Close']
+    df['Price_Range'] = (df['High'] - df['Low']) / df['Open']
+    # Handle division by zero
+    df['HL_Spread'] = df['HL_Spread'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    df['Price_Range'] = df['Price_Range'].replace([np.inf, -np.inf], np.nan).fillna(0)
+    # Momentum indicators
+    df['RSI'] = self._calculate_rsi(df['Close'])
+    df['MACD'], df['MACD_Signal'] = self._calculate_macd(df['Close'])
+    return df
+def _calculate_rsi(self, prices, window=14):
+    """Calculate Relative Strength Index"""
+    delta = prices.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=window, min_periods=1).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=window, min_periods=1).mean()
+    
+    # Avoid division by zero
+    rs = gain / loss.replace(0, np.nan)
+    rsi = 100 - (100 / (1 + rs))
+    return rsi.fillna(50)  # Fill NaN with neutral RSI value
+def _calculate_macd(self, prices, fast=12, slow=26, signal=9):
+    """Calculate MACD indicator"""
+    exp1 = prices.ewm(span=fast).mean()
+    exp2 = prices.ewm(span=slow).mean()
+    macd = exp1 - exp2
+    signal_line = macd.ewm(span=signal).mean()
+    return macd, signal_line
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import plotly.express as px
+import pandas as pd
+import numpy as np
+
+class VisualizationEngine:
+"""Professional visualization engine for event study analysis"""
+
+def __init__(self, config):
+    self.config = config
+    self.color_palette = [
+        '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+        '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
+    ]
+def create_abnormal_returns_chart(self, ar_data, asset_name):
+    """Create interactive abnormal returns chart"""
+    fig = go.Figure()
+    # Add abnormal returns
+    fig.add_trace(go.Scatter(
+        x=ar_data.index,
+        y=ar_data['AbnormalReturn'],
+        mode='lines+markers',
+        name='Abnormal Returns',
+        line=dict(color='#1f77b4', width=2),
+        marker=dict(size=6)
+    ))
+    # Add zero line
+    fig.add_hline(y=0, line_dash="dash", line_color="gray", 
+                 annotation_text="Zero Line")
+    # Add event date vertical line
+    fig.add_vline(x=self.config.event_date, line_dash="dot", 
+                 line_color="red", annotation_text="Event Date")
+    # Customize layout
+    fig.update_layout(
+        title=f'Abnormal Returns - {asset_name}',
+        xaxis_title='Date',
+        yaxis_title='Abnormal Return',
+        hovermode='x unified',
+        showlegend=True,
+        template='plotly_white',
+        height=500
+    )
+    return fig
+def create_car_evolution_chart(self, ar_data, asset_name):
+    """Create cumulative abnormal returns evolution chart"""
+    fig = go.Figure()
+    # Add CAR line
+    fig.add_trace(go.Scatter(
+        x=ar_data.index,
+        y=ar_data['CAR'],
+        mode='lines+markers',
+        name='Cumulative Abnormal Returns',
+        line=dict(color='#ff7f0e', width=3),
+        marker=dict(size=6),
+        fill='tonexty' if ar_data['CAR'].iloc[0] >= 0 else 'tozeroy',
+        fillcolor='rgba(255, 127, 14, 0.2)'
+    ))
+    # Add zero line
+    fig.add_hline(y=0, line_dash="dash", line_color="gray")
+    # Add event date vertical line
+    fig.add_vline(x=self.config.event_date, line_dash="dot", 
+                 line_color="red", annotation_text="Event Date")
+    # Customize layout
+    fig.update_layout(
+        title=f'Cumulative Abnormal Returns (CAR) - {asset_name}',
+        xaxis_title='Date',
+        yaxis_title='Cumulative Abnormal Return',
+        hovermode='x unified',
+        showlegend=True,
+        template='plotly_white',
+        height=500
+    )
+    return fig
+def create_cross_asset_comparison(self, analysis_results):
+    """Create cross-asset CAR comparison chart"""
+    fig = go.Figure()
+    colors = self.color_palette[:len(analysis_results)]
+    
+    for i, (asset_name, result) in enumerate(analysis_results.items()):
+        if result['abnormal_returns'] is not None:
+            ar_data = result['abnormal_returns']
+            
+            fig.add_trace(go.Scatter(
+                x=ar_data.index,
+                y=ar_data['CAR'],
+                mode='lines+markers',
+                name=asset_name,
+                line=dict(color=colors[i], width=2),
+                marker=dict(size=4)
+            ))
+    # Add zero line
+    fig.add_hline(y=0, line_dash="dash", line_color="gray")
+    # Add event date vertical line
+    fig.add_vline(x=self.config.event_date, line_dash="dot", 
+                 line_color="red", annotation_text="Event Date")
+    # Customize layout
+    fig.update_layout(
+        title='Cross-Asset CAR Comparison',
+        xaxis_title='Date',
+        yaxis_title='Cumulative Abnormal Return',
+        hovermode='x unified',
+        showlegend=True,
+        template='plotly_white',
+        height=600
+    )
+    return fig
+def create_volume_profile_chart(self, data, asset_name):
+    """Create volume profile and price movement chart"""
+    fig = make_subplots(
+        rows=2, cols=1,
+        shared_xaxes=True,
+        subplot_titles=['Price Movement', 'Volume Profile'],
+        vertical_spacing=0.1,
+        row_heights=[0.7, 0.3]
+    )
+    # Price chart
+    fig.add_trace(go.Scatter(
+        x=data.index,
+        y=data['Close'],
+        mode='lines',
+        name='Close Price',
+        line=dict(color='#1f77b4', width=2)
+    ), row=1, col=1)
+    # Volume chart
+    colors = ['green' if ret >= 0 else 'red' for ret in data['Returns'].fillna(0)]
+    fig.add_trace(go.Bar(
+        x=data.index,
+        y=data['Volume'],
+        name='Volume',
+        marker_color=colors,
+        opacity=0.7
+    ), row=2, col=1)
+    # Add volume ratio line
+    if 'VolumeRatio' in data.columns:
+        fig.add_trace(go.Scatter(
+            x=data.index,
+            y=data['VolumeRatio'],
+            mode='lines',
+            name='Volume Ratio',
+            line=dict(color='orange', width=2),
+            yaxis='y3'
+        ), row=2, col=1)
+    # Add event date vertical line
+    fig.add_vline(x=self.config.event_date, line_dash="dot", 
+                 line_color="red")
+    # Update layout
+    fig.update_layout(
+        title=f'Volume Profile Analysis - {asset_name}',
+        template='plotly_white',
+        height=600,
+        showlegend=True
+    )
+    fig.update_xaxes(title_text="Date", row=2, col=1)
+    fig.update_yaxes(title_text="Price", row=1, col=1)
+    fig.update_yaxes(title_text="Volume", row=2, col=1)
+    return fig
+def create_technical_indicators_chart(self, data, asset_name):
+    """Create technical indicators chart"""
+    fig = make_subplots(
+        rows=3, cols=1,
+        shared_xaxes=True,
+        subplot_titles=['Price & MACD', 'RSI', 'Volatility Metrics'],
+        vertical_spacing=0.08,
+        row_heights=[0.5, 0.25, 0.25]
+    )
+    # Price and MACD
+    fig.add_trace(go.Scatter(
+        x=data.index,
+        y=data['Close'],
+        mode='lines',
+        name='Close Price',
+        line=dict(color='#1f77b4', width=2)
+    ), row=1, col=1)
+    if 'MACD' in data.columns:
+        fig.add_trace(go.Scatter(
+            x=data.index,
+            y=data['MACD'],
+            mode='lines',
+            name='MACD',
+            line=dict(color='orange', width=1),
+            yaxis='y2'
+        ), row=1, col=1)
+    if 'MACD_Signal' in data.columns:
+        fig.add_trace(go.Scatter(
+            x=data.index,
+            y=data['MACD_Signal'],
+            mode='lines',
+            name='MACD Signal',
+            line=dict(color='red', width=1),
+            yaxis='y2'
+        ), row=1, col=1)
+    # RSI
+    if 'RSI' in data.columns:
+        fig.add_trace(go.Scatter(
+            x=data.index,
+            y=data['RSI'],
+            mode='lines',
+            name='RSI',
+            line=dict(color='purple', width=2)
+        ), row=2, col=1)
+        # RSI overbought/oversold lines
+        fig.add_hline(y=70, line_dash="dash", line_color="red", 
+                     row=2, col=1)
+        fig.add_hline(y=30, line_dash="dash", line_color="green", 
+                     row=2, col=1)
+    # Volatility metrics
+    if 'RealizedVolatility' in data.columns:
+        fig.add_trace(go.Scatter(
+            x=data.index,
+            y=data['RealizedVolatility'],
+            mode='lines',
+            name='Realized Volatility',
+            line=dict(color='darkred', width=2)
+        ), row=3, col=1)
+    if 'HL_Spread' in data.columns:
+        fig.add_trace(go.Scatter(
+            x=data.index,
+            y=data['HL_Spread'],
+            mode='lines',
+            name='HL Spread',
+            line=dict(color='brown', width=1),
+            yaxis='y4'
+        ), row=3, col=1)
+    # Add event date vertical line to all subplots
+    for row in [1, 2, 3]:
+        fig.add_vline(x=self.config.event_date, line_dash="dot", 
+                     line_color="red", row=row, col=1)
+    # Update layout
+    fig.update_layout(
+        title=f'Technical Indicators - {asset_name}',
+        template='plotly_white',
+        height=800,
+        showlegend=True
+    )
+    fig.update_xaxes(title_text="Date", row=3, col=1)
+    fig.update_yaxes(title_text="Price", row=1, col=1)
+    fig.update_yaxes(title_text="RSI", row=2, col=1, range=[0, 100])
+    fig.update_yaxes(title_text="Volatility", row=3, col=1)
+    return fig
+def create_statistical_summary_chart(self, analysis_results):
+    """Create statistical summary visualization"""
+    # Prepare data for plotting
+    assets = list(analysis_results.keys())
+    cars = [result['ar_statistics']['car_total'] for result in analysis_results.values()]
+    p_values = [result['ar_statistics']['p_value'] for result in analysis_results.values()]
+    betas = [result['beta'] for result in analysis_results.values()]
+    # Create subplot
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=['Cumulative Abnormal Returns', 'P-Values', 
+                      'Beta Coefficients', 'Significance Summary'],
+        specs=[[{"type": "bar"}, {"type": "bar"}],
+               [{"type": "bar"}, {"type": "bar"}]]
+    )
+    # CAR chart
+    colors_car = ['green' if car > 0 else 'red' for car in cars]
+    fig.add_trace(go.Bar(
+        x=assets,
+        y=cars,
+        name='CAR',
+        marker_color=colors_car,
+        showlegend=False
+    ), row=1, col=1)
+    # P-values chart
+    colors_p = ['green' if p < 0.05 else 'red' for p in p_values]
+    fig.add_trace(go.Bar(
+        x=assets,
+        y=p_values,
+        name='P-Value',
+        marker_color=colors_p,
+        showlegend=False
+    ), row=1, col=2)
+    # Beta coefficients
+    fig.add_trace(go.Bar(
+        x=assets,
+        y=betas,
+        name='Beta',
+        marker_color='blue',
+        showlegend=False
+    ), row=2, col=1)
+    # Significance summary
+    significant = [1 if p < 0.05 else 0 for p in p_values]
+    fig.add_trace(go.Bar(
+        x=assets,
+        y=significant,
+        name='Significant',
+        marker_color=['green' if s else 'red' for s in significant],
+        showlegend=False
+    ), row=2, col=2)
+    # Add significance line to p-values
+    fig.add_hline(y=0.05, line_dash="dash", line_color="red", 
+                 row=1, col=2)
+    # Update layout
+    fig.update_layout(
+        title='Statistical Summary Dashboard',
+        template='plotly_white',
+        height=600,
+        showlegend=False
+    )
+    # Update axes
+    fig.update_xaxes(tickangle=45)
+    fig.update_yaxes(title_text="CAR", row=1, col=1)
+    fig.update_yaxes(title_text="P-Value", row=1, col=2)
+    fig.update_yaxes(title_text="Beta", row=2, col=1)
+    fig.update_yaxes(title_text="Significant (1=Yes)", row=2, col=2)
+    return fig
+import numpy as np
+import pandas as pd
+from scipy import stats
+from scipy.stats import shapiro, jarque_bera, mannwhitneyu, kstest, levene
+import warnings
+warnings.filterwarnings("ignore")
+
+class StatisticalTestSuite:
+"""Comprehensive statistical testing suite for event study analysis"""
+
+def __init__(self, config):
+    self.config = config
+    self.alpha = config.significance_level
+def run_comprehensive_tests(self, abnormal_returns):
+    """Run comprehensive statistical tests on abnormal returns"""
+    if len(abnormal_returns) < 3:
+        return self._empty_results()
+    # Clean data
+    ar_clean = abnormal_returns[~np.isnan(abnormal_returns)]
+    if len(ar_clean) < 3:
+        return self._empty_results()
+    results = {}
+    # Basic descriptive statistics
+    results.update(self._calculate_descriptive_stats(ar_clean))
+    # Normality tests
+    results.update(self._test_normality(ar_clean))
+    # Location tests (testing if mean is significantly different from zero)
+    results.update(self._test_location(ar_clean))
+    # Distribution tests
+    results.update(self._test_distribution(ar_clean))
+    # Variance tests
+    results.update(self._test_variance(ar_clean))
+    return results
+def _empty_results(self):
+    """Return empty results for insufficient data"""
+    return {
+        'mean': np.nan, 'std': np.nan, 'skewness': np.nan, 'kurtosis': np.nan,
+        'shapiro_stat': np.nan, 'shapiro_pvalue': np.nan,
+        'jarque_bera_stat': np.nan, 'jarque_bera_pvalue': np.nan,
+        'ttest_stat': np.nan, 'ttest_pvalue': np.nan,
+        'wilcoxon_stat': np.nan, 'wilcoxon_pvalue': np.nan,
+        'mannwhitney_stat': np.nan, 'mannwhitney_pvalue': np.nan,
+        'ks_stat': np.nan, 'ks_pvalue': np.nan,
+        'levene_stat': np.nan, 'levene_pvalue': np.nan
+    }
+def _calculate_descriptive_stats(self, data):
+    """Calculate descriptive statistics"""
+    return {
+        'mean': np.mean(data),
+        'std': np.std(data, ddof=1),
+        'skewness': stats.skew(data),
+        'kurtosis': stats.kurtosis(data)
+    }
+def _test_normality(self, data):
+    """Test for normality of abnormal returns"""
+    results = {}
+    # Shapiro-Wilk test (good for small samples)
+    try:
+        if len(data) <= 5000:  # Shapiro-Wilk has sample size limitations
+            shapiro_stat, shapiro_p = shapiro(data)
+            results['shapiro_stat'] = shapiro_stat
+            results['shapiro_pvalue'] = shapiro_p
+        else:
+            results['shapiro_stat'] = np.nan
+            results['shapiro_pvalue'] = np.nan
+    except:
+        results['shapiro_stat'] = np.nan
+        results['shapiro_pvalue'] = np.nan
+    # Jarque-Bera test
+    try:
+        jb_stat, jb_p = jarque_bera(data)
+        results['jarque_bera_stat'] = jb_stat
+        results['jarque_bera_pvalue'] = jb_p
+    except:
+        results['jarque_bera_stat'] = np.nan
+        results['jarque_bera_pvalue'] = np.nan
+    return results
+def _test_location(self, data):
+    """Test if the mean of abnormal returns is significantly different from zero"""
+    results = {}
+    # One-sample t-test
+    try:
+        t_stat, t_p = stats.ttest_1samp(data, 0)
+        results['ttest_stat'] = t_stat
+        results['ttest_pvalue'] = t_p
+    except:
+        results['ttest_stat'] = np.nan
+        results['ttest_pvalue'] = np.nan
+    # Wilcoxon signed-rank test (non-parametric alternative)
+    try:
+        w_stat, w_p = stats.wilcoxon(data, alternative='two-sided')
+        results['wilcoxon_stat'] = w_stat
+        results['wilcoxon_pvalue'] = w_p
+    except:
+        results['wilcoxon_stat'] = np.nan
+        results['wilcoxon_pvalue'] = np.nan
+    return results
+def _test_distribution(self, data):
+    """Test distribution properties"""
+    results = {}
+    # Mann-Whitney U test (comparing with normal distribution)
+    try:
+        # Generate normal sample with same mean and std
+        normal_sample = np.random.normal(np.mean(data), np.std(data), len(data))
+        mw_stat, mw_p = mannwhitneyu(data, normal_sample, alternative='two-sided')
+        results['mannwhitney_stat'] = mw_stat
+        results['mannwhitney_pvalue'] = mw_p
+    except:
+        results['mannwhitney_stat'] = np.nan
+        results['mannwhitney_pvalue'] = np.nan
+    # Kolmogorov-Smirnov test against normal distribution
+    try:
+        # Standardize data
+        standardized = (data - np.mean(data)) / np.std(data)
+        ks_stat, ks_p = kstest(standardized, 'norm')
+        results['ks_stat'] = ks_stat
+        results['ks_pvalue'] = ks_p
+    except:
+        results['ks_stat'] = np.nan
+        results['ks_pvalue'] = np.nan
+    return results
+def _test_variance(self, data):
+    """Test variance properties"""
+    results = {}
+    # Levene's test for equal variances (comparing with normal distribution)
+    try:
+        normal_sample = np.random.normal(np.mean(data), np.std(data), len(data))
+        levene_stat, levene_p = levene(data, normal_sample)
+        results['levene_stat'] = levene_stat
+        results['levene_pvalue'] = levene_p
+    except:
+        results['levene_stat'] = np.nan
+        results['levene_pvalue'] = np.nan
+    return results
+def interpret_results(self, test_results):
+    """Provide interpretation of statistical test results"""
+    interpretations = []
+    # Normality interpretation
+    if test_results['shapiro_pvalue'] < self.alpha:
+        interpretations.append("Abnormal returns deviate from normal distribution (Shapiro-Wilk test)")
+    
+    if test_results['jarque_bera_pvalue'] < self.alpha:
+        interpretations.append("Abnormal returns show non-normal skewness/kurtosis (Jarque-Bera test)")
+    # Significance interpretation
+    if test_results['ttest_pvalue'] < self.alpha:
+        interpretations.append("Abnormal returns are statistically significant (t-test)")
+    
+    if test_results['wilcoxon_pvalue'] < self.alpha:
+        interpretations.append("Abnormal returns are statistically significant (Wilcoxon test)")
+    # Distribution comparison
+    if test_results['ks_pvalue'] < self.alpha:
+        interpretations.append("Distribution differs significantly from normal (Kolmogorov-Smirnov test)")
+    return interpretations
+def calculate_effect_size(self, abnormal_returns):
+    """Calculate effect size measures"""
+    if len(abnormal_returns) < 2:
+        return {}
+    ar_clean = abnormal_returns[~np.isnan(abnormal_returns)]
+    
+    # Cohen's d (effect size for t-test)
+    mean_ar = np.mean(ar_clean)
+    std_ar = np.std(ar_clean, ddof=1)
+    cohens_d = mean_ar / std_ar if std_ar > 0 else 0
+    # Hedges' g (bias-corrected Cohen's d)
+    n = len(ar_clean)
+    hedges_g = cohens_d * (1 - (3 / (4 * n - 9))) if n > 9 else cohens_d
+    return {
+        'cohens_d': cohens_d,
+        'hedges_g': hedges_g,
+        'sample_size': n
+    }
+def bonferroni_correction(self, p_values, alpha=None):
+    """Apply Bonferroni correction for multiple testing"""
+    if alpha is None:
+        alpha = self.alpha
+    corrected_alpha = alpha / len(p_values)
+    significant = [p < corrected_alpha for p in p_values]
+    
+    return {
+        'corrected_alpha': corrected_alpha,
+        'significant_tests': significant,
+        'num_significant': sum(significant)
+    }
+def false_discovery_rate(self, p_values, alpha=None):
+    """Apply Benjamini-Hochberg FDR correction"""
+    if alpha is None:
+        alpha = self.alpha
+    # Sort p-values and get original indices
+    sorted_indices = np.argsort(p_values)
+    sorted_p_values = np.array(p_values)[sorted_indices]
+    
+    n = len(p_values)
+    significant = np.zeros(n, dtype=bool)
+    
+    # Apply FDR procedure
+    for i in range(n-1, -1, -1):
+        threshold = (i + 1) / n * alpha
+        if sorted_p_values[i] <= threshold:
+            significant[sorted_indices[i:]] = True
+            break
+    
+    return {
+        'fdr_alpha': alpha,
+        'significant_tests': significant.tolist(),
+        'num_significant': np.sum(significant)
+    }
+    # Add event date as annotation instead of vline to avoid timestamp issues
+    try:
+        event_date_str = pd.to_datetime(self.config.event_date).strftime('%Y-%m-%d')
+        fig.add_annotation(
+            x=event_date_str,
+            y=0.95,
+            xref="x",
+            yref="paper",
+            text="Event Date",
+            showarrow=True,
+            arrowhead=2,
+            arrowcolor="red",
+            arrowwidth=2,
+            bgcolor="red",
+            bordercolor="red",
+            font=dict(color="white")
+        )
+    except:
+        pass  # Skip if date conversion fails

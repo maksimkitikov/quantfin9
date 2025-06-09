@@ -1,0 +1,59 @@
+# 🚨 URGENT FIX INSTRUCTIONS — PLEASE READ CAREFULLY:
+
+After the last update, AR/CAR/Volatility calculations became incorrect. Please follow this specification to restore full functionality.
+
+---
+
+# ✅ KEY ISSUES TO FIX:
+
+1. ✅ **Daily AR (Abnormal Return) must be calculated for EVERY date inside the event window**  
+   - If the event date is June 2, 2025 — make sure `abnormal_returns['2025-06-02']` is not null or missing.
+   - For each day:  
+     `AR = Actual Return - Expected Return` (from CAPM or regression)
+
+2. ✅ **Cumulative AR (CAR) must be computed as the running sum of ARs within the window**  
+   - This must include **pre-event, event day, and post-event dates**.
+   - Formula:  
+     ```python
+     CAR = abnormal_returns.cumsum()
+     ```
+
+3. ✅ **Volatility must be calculated as a rolling std or GARCH-style window over returns**  
+   - Rolling volatility (e.g., 2-day annualized) must change daily, not remain flat.  
+   - Example:  
+     ```python
+     rolling_vol = returns.rolling(window=2).std() * np.sqrt(252)
+     ```
+
+4. ✅ **Ensure AR/CAR series are aligned correctly with the index (dates)**  
+   - Sometimes `.shift()` or `.dropna()` breaks alignment — please double-check `df.index` and AR index.
+   - The event marker must correspond to actual AR and CAR values on that date.
+
+5. ✅ **Restore multi-day display (e.g., May 31 to June 4)** in all charts.
+
+---
+
+# 📈 Restore old AI interpretation logic:
+Bring back the AI-generated financial interpretation panel using AR, CAR, and Volatility to explain market behavior.
+Example: June 2, 2025: AR = -0.153%, CAR = -0.1433%, Volatility spike = +47%. Likely cause: policy shock (e.g., U.S.-China trade action). Efficient market response due to fast recovery on June 3.  
+---
+
+# ⚙️ CODE RESTORATION REQUEST:
+
+Please restore and correctly link:
+- `calculate_abnormal_returns(...)`
+- `calculate_CAR(...)`
+- `calculate_rolling_volatility(...)`
+- `plot_event_study(...)`
+
+Verify all these functions match CAPM logic and are correctly using asset returns vs expected returns.
+
+---
+
+# 🧪 TEST INPUT TO VERIFY:
+Use:
+```python
+ticker = "^GSPC"
+event_date = "2025-06-02"
+event_window = ("2025-05-30", "2025-06-04")
+

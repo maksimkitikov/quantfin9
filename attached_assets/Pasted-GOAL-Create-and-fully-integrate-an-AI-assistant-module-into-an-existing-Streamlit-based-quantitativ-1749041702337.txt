@@ -1,0 +1,87 @@
+GOAL:
+Create and fully integrate an AI assistant module into an existing Streamlit-based quantitative event study platform.
+This AI assistant must:
+1. Automatically interpret the financial data visualizations (AR, CAR, volatility, volume) for any asset (e.g. S&P 500, FXI, BTC-USD).
+2. Explain the market behavior in plain English.
+3. Suggest the most likely economic or policy-based causes of the movement.
+4. Handle any asset class — stocks, ETFs, cryptocurrencies, indices — and detect asset-specific logic.
+5. Return intelligent, human-like summaries and economic insights in real time.
+# ✅ CONTEXT:
+You are working with a dashboard that runs event studies using CAPM or Fama-French expected returns and calculates: Daily Abnormal Returns (AR), Cumulative Abnormal Returns (CAR), Rolling Volatility (GARCH or rolling std), Volume spikes
+Data comes from:
+- Yahoo Finance (for stocks, ETFs), ccxt (for crypto), Polygon.io (for headlines / news metadata)
+
+---
+
+# ✅ EXPECTED AI MODULE OUTPUT:
+
+The AI assistant should output a concise, structured financial interpretation like: 📊 Asset: S&P 500
+📅 Event Date: June 2, 2025
+🔺 Actual Return: +0.41%
+🔻 Abnormal Return: -0.153%
+📉 CAR (Event Window): -0.143%
+📈 Volatility Spike: +47%
+
+🧠 Interpretation:
+On June 2, 2025, S&P 500 experienced a significant drop in abnormal return (-0.153%) following real-world geopolitical shocks related to U.S.–China relations (tariffs, AI chip export controls, visa restrictions). Despite a positive nominal return, CAPM-model deviation signals underperformance relative to expectations. The moderate CAR drop and rising volatility point to a short-lived but material risk repricing. Market recovery on June 3 indicates efficient absorption.
+
+# ✅ MODULE STRUCTURE TO BUILD:
+
+### 1. `interpreter.py`
+- Accepts: AR series, CAR series, volatility, volume, actual return, expected return, event date, asset name.
+- Performs: Pattern detection, rule-based explanation (e.g. large AR drop + vol spike = fear response), and news keyword matching (optional).
+- Returns: Markdown-formatted text block of AI summary.
+
+### 2. `auto_summary.py`
+- Wraps `interpreter.py` into a Streamlit component.
+- Detects currently selected asset and event date.
+- Automatically updates explanation block under each chart.
+
+### 3. `news_reasoner.py` (optional)
+- Queries Polygon.io or NewsAPI with relevant asset name + date.
+- Uses NLP/embedding matching (e.g. via OpenAI Embedding API or SentenceTransformer) to match headlines to price patterns.
+
+---
+
+# 📌 CORE INTELLIGENCE RULES TO BUILD IN:
+
+- If AR < -1.5% → "abnormal negative response"
+- If CAR drops > 2% in 3 days → "sustained risk-off reaction"
+- If Volatility spikes > 40% vs 5-day average → "fear or uncertainty response"
+- If Volume ↑↑ and AR ↓ → "panic or selloff behavior"
+- If event day return is positive but AR is negative → "underperformed expectations"
+
+Use these rules to infer tone:
+- Calm market → AR ~ 0, low vol
+- Shock → big negative AR, spike in volatility
+- Relief rally → +AR and CAR after prior drop
+
+---
+
+# 🛠 TECH TO USE:
+- Python (3.10+)
+- Pandas, NumPy
+- OpenAI (or local LLM)
+- scikit-learn or sentence-transformers (for semantic matching)
+- yfinance, ccxt, Polygon.io
+- Plotly / Streamlit
+- statsmodels for CAPM modeling
+- arch or pmdarima for volatility modeling (GARCH)
+
+---
+
+# 🧪 SAMPLE API:
+
+```python
+from interpreter import interpret_market_event
+
+interpret_market_event(
+    asset="S&P 500",
+    event_date="2025-06-02",
+    ar_series=[...],     # list or np.array of ARs
+    car_series=[...],    # list or np.array of CARs
+    volatility=[...],    # list or np.array
+    actual_return=0.41,
+    expected_return=0.563,
+    volume=[...]
+)

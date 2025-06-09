@@ -1,0 +1,76 @@
+from polygon import RESTClient
+from polygon.rest.models import TickerNews
+from datetime import datetime, timedelta
+
+class PolygonNewsCollector:
+    def __init__(self, api_key: str):
+        self.client = RESTClient(api_key=api_key)
+        self.key_tickers = ["SPY", "NVDA", "TSLA", "AAPL", "INTC", "QQQ"]  # Can add FXI, SOXX, IYT
+        self.sort_order = "desc"
+        self.limit = 20  # Pull more to allow filtering
+        self.target_date = datetime.today().strftime("%Y-%m-%d")
+
+    def fetch_news(self):
+        """
+        Fetch news for all key tickers from Polygon
+        """
+        all_news = []
+
+        for ticker in self.key_tickers:
+            try:
+                news_items = self.client.list_ticker_news(
+                    ticker=ticker,
+                    order=self.sort_order,
+                    limit=self.limit,
+                    sort="published_utc"
+                )
+
+                for item in news_items:
+                    if isinstance(item, TickerNews):
+                        published_str = item.published_utc.strftime("%Y-%m-%d")
+                        if published_str == self.target_date:
+                            all_news.append({
+                                "ticker": ticker,
+                                "title": item.title,
+                                "summary": item.summary,
+                                "url": item.article_url,
+                                "published": item.published_utc.strftime("%Y-%m-%d %H:%M")
+                            })
+
+            except Exception as e:
+                print(f"Error fetching news for {ticker}: {e}")
+
+        return all_news
+
+    def filter_high_impact(self, news_list):
+        """
+        Optional keyword filtering to reduce noise
+        """
+        keywords = ["tariff", "China", "sanction", "AI", "export", "ban", "Trump", "shock"]
+        filtered = []
+
+        for item in news_list:
+            title_lower = item["title"].lower()
+            if any(keyword in title_lower for keyword in keywords):
+                filtered.append(item)
+
+        return filtered
+
+    def display(self, news_list):
+        if not news_list:
+            print("⚠️ No news found for today.")
+            return
+
+        print(f"\n🔍 Relevant market news for {self.target_date}:\n")
+        for idx, item in enumerate(news_list):
+            print(f"{idx+1:02d}. [{item['ticker']}] {item['published']} — {item['title']}")
+            print(f"     {item['url']}\n")
+
+
+# ✅ Example usage
+if __name__ == "__main__":
+    api_key = "TSLazufU2mtRqBUUi1kwfRVgXJwScmG2"
+    collector = PolygonNewsCollector(api_key)
+    all_today_news = collector.fetch_news()
+    filtered = collector.filter_high_impact(all_today_news)
+    collector.display(filtered)

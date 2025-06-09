@@ -1,0 +1,112 @@
+Build a complete and ready-to-run Python application for automated event study in financial markets. The application should identify impactful macroeconomic or geopolitical events (such as U.S.–China trade shocks), evaluate their market significance using financial NLP models, and run an automated abnormal return analysis on equity indices and sector ETFs. The goal is to simulate how real quant researchers analyze market-moving news. The output must include CAPM-based abnormal returns, cumulative abnormal returns (CAR), volatility diagnostics, and visual interpretation.
+
+🔧 Functional Requirements:
+News Collection:
+
+Use NewsAPI.org or another free API to fetch news headlines using keywords: "China", "tariffs", "AI", "Trump", "Fed".
+
+Date range: must be configurable (default = 2025-06-02).
+
+Extract and store top 5–10 headlines.
+
+NLP-Based News Prioritization:
+
+Use HuggingFace Transformers (e.g., finBERT, or distilbert-base-uncased) to score news headlines by impact.
+
+Select the highest impact headline as the “event” trigger for analysis.
+
+Market Reaction Check:
+
+Download live historical data (daily) for:
+
+^GSPC (S&P 500)
+
+FXI (China large-cap ETF)
+
+SOXX (Semiconductors ETF)
+
+IYT (Transportation ETF)
+
+Measure daily return and volume change on event day.
+
+If price change > ±0.8% or volume spike > 100%, classify as significant market reaction.
+
+Quantitative Event Study (on validated reaction):
+
+Calculate:
+
+CAPM Expected Return (can use rolling beta or constant beta)
+
+Abnormal Returns (AR)
+
+Cumulative Abnormal Returns (CAR) for [-5, +5] day windows
+
+Optional: Include Fama-French 3-Factor Model if data permits.
+
+Volatility & Volume Analysis:
+
+Compute rolling volatility (σ) pre- and post-event.
+
+Show boxplot or line chart of volatility spike.
+
+Plot volume bars with event highlight.
+
+Visualization & Reporting:
+
+Matplotlib-based chart output:
+
+Price and CAR
+
+ARs with confidence bands
+
+Volatility comparison
+
+Volume response
+
+Automatically output insights in text:
+
+“S&P fell 1.2% after headline... Volatility increased by 38%...”
+
+Interpret result in terms of sectors and market sensitivity.
+
+Structure the code as a full app:
+
+Modular structure: news.py, analysis.py, visuals.py, main.py
+
+Environment variables or .env for API keys
+
+CLI or script-driven architecture
+
+Ready to deploy on Replit or GitHub
+
+📌 Additional Notes:
+Remove any emoji (e.g., “📊”) from UI or outputs — keep the style professional.
+
+Replace placeholder data (e.g., “April 1 shock”) with real data for 2025-06-02.
+
+Focus on using only free and public APIs.
+
+Use yfinance for market data.
+
+Add comments and docstrings in clean professional English.
+
+🧠 Optional Stretch Goals:
+Add a Streamlit dashboard for user interaction.
+
+Store event studies in .csv or .json with a headline tag for archival.
+
+Allow interactive comparison across events (e.g., dropdown with different days).
+
+✅ Final Output:
+A single, well-documented Python application that can be run in Replit and does the following:
+
+Fetches live market data
+
+Detects real financial news events
+
+Performs quantitative analysis
+
+Outputs charts and commentary
+
+Simulates real-world usage of quant finance in market shocks
+

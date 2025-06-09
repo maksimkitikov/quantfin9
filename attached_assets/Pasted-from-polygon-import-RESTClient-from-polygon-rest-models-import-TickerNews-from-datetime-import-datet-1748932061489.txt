@@ -1,0 +1,119 @@
+from polygon import RESTClient
+from polygon.rest.models import TickerNews
+from datetime import datetime
+from typing import List, Dict
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class NewsCollector:
+    def __init__(self, api_key: str):
+        self.client = RESTClient(api_key=api_key)
+        self.key_tickers = ["SPY", "NVDA", "TSLA", "AAPL", "INTC", "QQQ", "FXI", "SOXX", "IYT"]
+        self.sort_order = "desc"
+        self.limit = 20
+        self.target_date = datetime.today().strftime("%Y-%m-%d")
+
+        self.filter_keywords = [
+            "market", "stock", "economy", "economic", "financial", "finance",
+            "trading", "investment", "gdp", "inflation", "monetary", "fiscal",
+            "earnings", "revenue", "profit", "loss", "billion", "million",
+            "fed", "federal reserve", "central bank", "interest rate",
+            "tariff", "trade", "export", "import", "china", "semiconductor",
+            "AI", "Trump", "ban", "shock", "sanction"
+        ]
+
+        self.impact_weights = {
+            "crisis": 10, "crash": 10, "collapse": 10,
+            "tariff": 8, "sanctions": 8, "trade war": 9,
+            "federal reserve": 7, "interest rate": 7, "inflation": 6,
+            "recession": 9, "gdp": 6, "unemployment": 5,
+            "china": 6, "russia": 5, "europe": 4,
+            "trillion": 8, "billion": 6, "million": 3,
+            "emergency": 9, "urgent": 7, "breaking": 6,
+            "investigation": 5, "lawsuit": 4, "regulation": 5,
+            "AI": 4, "ban": 4, "Trump": 4, "shock": 4, "semiconductor": 4
+        }
+
+    def fetch_news(self) -> List[Dict]:
+        all_news = []
+
+        for ticker in self.key_tickers:
+            try:
+                news_items = self.client.list_ticker_news(
+                    ticker=ticker,
+                    order=self.sort_order,
+                    limit=self.limit,
+                    sort="published_utc"
+                )
+
+                for item in news_items:
+                    if isinstance(item, TickerNews):
+                        published_str = item.published_utc.strftime("%Y-%m-%d")
+                        if published_str == self.target_date:
+                            article = {
+                                "ticker": ticker,
+                                "title": item.title,
+                                "summary": item.summary or "",
+                                "url": item.article_url or "",
+                                "published": item.published_utc.strftime("%Y-%m-%d %H:%M"),
+                                "source": f"Polygon.io ({ticker})"
+                            }
+                            all_news.append(article)
+
+            except Exception as e:
+                logger.error(f"Error fetching news for {ticker}: {e}")
+
+        logger.info(f"Fetched {len(all_news)} articles for {self.target_date}")
+        return all_news
+
+    def filter_relevant(self, articles: List[Dict]) -> List[Dict]:
+        filtered = []
+        seen = set()
+
+        for article in articles:
+            text = f"{article['title']} {article['summary']}".lower()
+            if article['title'] in seen:
+                continue
+            seen.add(article['title'])
+
+            if any(keyword.lower() in text for keyword in self.filter_keywords):
+                filtered.append(article)
+
+        logger.info(f"Filtered to {len(filtered)} relevant articles")
+        return filtered
+
+    def rank_by_impact(self, articles: List[Dict]) -> List[Dict]:
+        for article in articles:
+            score = 0
+            text = f"{article['title']} {article['summary']}".lower()
+            for keyword, weight in self.impact_weights.items():
+                if keyword in text:
+                    score += weight
+            article['impact_score'] = score
+
+        ranked = sorted(articles, key=lambda x: x['impact_score'], reverse=True)
+        return ranked
+
+    def display_top(self, articles: List[Dict], top_n: int = 5):
+        if not articles:
+            print("⚠️ No relevant articles found.")
+            return
+
+        print(f"\n🔍 Top {top_n} impactful headlines for {self.target_date}:\n")
+        for i, article in enumerate(articles[:top_n]):
+            print(f"{i+1}. [{article['ticker']}] {article['title']}")
+            print(f"   Published: {article['published']} | Score: {article['impact_score']}")
+            print(f"   URL: {article['url']}\n")
+
+
+if __name__ == "__main__":
+    API_KEY = "TSLazufU2mtRqBUUi1kwfRVgXJwScmG2"
+    collector = NewsCollector(API_KEY)
+
+    raw_articles = collector.fetch_news()
+    relevant = collector.filter_relevant(raw_articles)
+    ranked = collector.rank_by_impact(relevant)
+    collector.display_top(ranked)

@@ -1,0 +1,98 @@
+ Goal:
+Fix all visual, statistical, and data logic issues in the current Streamlit dashboard for the QuantFin Society’s Event Study Analysis platform.
+
+🧩 CONTEXT
+We are analyzing market reaction to a real economic shock — U.S.–China Trade Shock (June 2, 2025), announced by Trump, involving:
+
+Revoking Chinese student visas
+
+Banning AI chip exports
+
+This is meant to simulate professional-grade event studies using:
+
+Real trading data (S&P 500, FXI, SOXX, IYT)
+
+Abnormal return models (CAPM, CAR)
+
+Volatility + volume diagnostics (GARCH, STD, volume % change)
+
+Sector comparisons
+
+📉 CURRENT ERRORS TO FIX
+1. ❌ Abnormal Return Chart Bug
+In Event Study Analysis – S&P 500:
+
+On some screens, the red/green bars are reversed, or not aligned with the actual return signs.
+
+Scale is inconsistent, sometimes CAR < 0.001 is visualized as if it's a strong signal.
+
+The blue Cumulative AR line doesn’t match the true values (i.e., 0.15 → 0 → 0.04 is misrepresented).
+
+✅ Make sure that:
+
+Abnormal Return = Actual - Expected (from CAPM)
+
+CAR = Sum of ARs (adjusted for window)
+
+Axes are scaled based on actual values
+
+Red = negative AR, green = positive AR
+
+Cumulative AR builds correctly over time
+
+2. ❌ Statistical Output Misalignment
+CAR = 0.0004 and Mean AR = 0.0001 is shown as “Not Significant” — unclear on what metric this is based.
+✅ Fix:
+
+Use t-test or regression t-statistic on AR series
+
+Display p-value, and only mark “Not Significant” if p > 0.05
+
+3. ❌ Timeline / Label Errors
+X-axis on some charts (e.g., Cumulative AR) does not show all dates clearly (e.g., Jun 1/2/3)
+✅ Improve labeling with full date (e.g., "June 2")
+
+4. ❌ R-squared / Beta Comparison Not Useful Visually
+In charts like:
+
+Beta Comparison, R-squared, Statistical Significance — all show as full bars at 1.0 or 0.9 but with no axis explanation.
+✅ Replace or annotate:
+
+Show values as clear numbers
+
+Color-code only if they deviate significantly from expected CAPM (e.g., Beta ≠ 1.0, R² < 0.7)
+
+Add tooltips
+
+5. ❌ Missing GARCH and Volume Spike Diagnostics
+✅ Add:
+
+Rolling volatility with spike indicator around the shock window
+
+Volume % change on event day vs 5-day average
+
+✅ Example (What It Should Show)
+For S&P 500:
+
+yaml
+Copy
+Edit
+June 2: AR = -0.12%  
+June 3: AR = +0.03%  
+CAR: -0.09%  
+Volatility: spiked 40%  
+Volume: +120% vs avg  
+p-value: 0.034 (Significant)
+🧪 TECH STACK CONFIRMATION
+✅ Uses yfinance / Polygon.io
+
+✅ CAPM implemented
+
+✅ CAR computed
+
+✅ Streamlit frontend working
+
+💬 Final Request:
+Fix all the above issues. Ensure that all plots, metrics, and interpretation accurately reflect the real abnormal return logic used in financial research. This will be used by real recruiters and investors — make it accurate and beautiful.
+
+Use clear fonts, proper scales, and statistically grounded thresholds.

@@ -1,0 +1,141 @@
+Create a complete, modular Python application that performs automated financial event study analysis using real news and market data. The application must detect the most impactful macroeconomic news of the day, assess its relevance, confirm market reaction, and launch an event study (abnormal returns, CAR, volatility, volume).
+
+📌 GOAL:
+Build a real-world event study engine — like what quant researchers and hedge funds do. Use NewsAPI, yfinance, finBERT, CAPM, matplotlib, and standard data science libraries.
+
+🔧 STEP 1: News Collection
+Use the NewsAPI endpoint https://newsapi.org/v2/everything
+
+API key: "utGvy8K6nWiGRbIXwsE6pRmmLlCYRLLL"
+
+Keywords: "China", "AI", "tariffs", "Fed", "Trump", "sanctions"
+
+Date: configurable (default = today)
+
+Request 10 articles, sorted by popularity
+
+Code should:
+
+Parse all article titles
+
+Remove duplicates, filter for relevance using keyword matching
+
+Store headlines in a list for NLP ranking
+
+🤖 STEP 2: NLP-Based Relevance Scoring
+Use HuggingFace ProsusAI/finBERT for financial text sentiment
+
+For each headline, compute an “impact score” (positive/negative and confidence)
+
+Combine with a “popularity score” (from NewsAPI metadata if available)
+
+Rank headlines using:
+
+python
+Copy
+Edit
+final_score = 0.6 * impact_score + 0.4 * popularity_score
+Select the top-1 headline → treat it as “Main Event of the Day”
+
+📉 STEP 3: Market Reaction Detection
+Use yfinance to load data for:
+
+^GSPC (S&P 500)
+
+FXI (China Large Cap)
+
+SOXX (Semiconductors)
+
+IYT (Transportation)
+
+Load price and volume data from 10 days before to 5 days after the event
+
+Confirm market reaction if:
+
+Return on event day > ±0.8%
+
+Volume spike > 1.5× 5-day average
+
+Optional: Volatility (rolling STD) spike
+
+If no reaction → log and exit. If confirmed → continue to analysis.
+
+📈 STEP 4: Event Study (AR / CAR)
+For each ticker:
+
+Compute CAPM expected return using 60-day rolling beta
+
+Compute daily Abnormal Returns (AR) and Cumulative Abnormal Return (CAR) over window [-5, +5]
+
+Perform t-test on AR, CAR
+
+Plot:
+
+Price + CAR
+
+AR bars with error bars
+
+Volatility vs. baseline
+
+Volume spikes
+
+🧾 STEP 5: Reporting & Interpretation
+Auto-generate summary text:
+
+“S&P dropped 1.3% on June 2 after headline about Trump restricting AI chips…”
+
+“FXI, SOXX declined 2.8%, 3.5%. Volume spikes confirmed abnormal market response.”
+
+“CAR over 5 days was statistically significant (p < 0.03)”
+
+Save:
+
+Plots as PNG
+
+Metrics as CSV
+
+Event metadata as JSON
+
+🧱 FOLDER STRUCTURE:
+bash
+Copy
+Edit
+/event_study_project/
+├── main.py
+├── news.py           # fetch_news(), rank_headlines()
+├── nlp.py            # score_headlines_with_bert()
+├── market.py         # load_market_data(), detect_reaction()
+├── analysis.py       # run_capm(), compute_ar_car()
+├── visuals.py        # generate_plots(), save_outputs()
+├── .env              # NEWSAPI_KEY
+├── requirements.txt
+└── README.md
+📦 DEPENDENCIES:
+yfinance
+
+pandas, numpy, scipy, matplotlib
+
+transformers, torch
+
+python-dotenv
+
+requests
+
+⚠️ ADDITIONAL REQUIREMENTS:
+Use .env for API key
+
+Add error handling (no news, rate limits, market closed)
+
+Document all functions
+
+Format charts professionally: title, axis labels, legend
+
+🧠 BONUS:
+Optional Streamlit front-end
+
+Store history of all past events
+
+Add command-line argument: --date YYYY-MM-DD
+
+🎯 The final output should be a fully working Python application that automatically fetches news, confirms market reactions, runs AR/CAR analysis, and visualizes results — just like a quant finance project.
+

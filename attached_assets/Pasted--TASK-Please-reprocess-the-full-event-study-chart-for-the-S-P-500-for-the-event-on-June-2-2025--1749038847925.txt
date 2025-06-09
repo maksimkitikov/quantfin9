@@ -1,0 +1,46 @@
+📌 TASK: Please reprocess the full event study chart for the S&P 500 for the event on June 2, 2025 (U.S.–China Trade Shock), and correct the following critical inconsistencies:
+
+---
+
+❗ CURRENT CHART ISSUES:
+
+1. The **Abnormal Return (AR)** on June 2 is shown as **–0.1342%**, while actual market data shows that S&P 500 closed **+0.4% up**, which implies the AR should be **positive or near zero**, not negative.
+
+2. The **Cumulative AR (CAR)** is shown as **positive (0.0235%)**, which is mathematically inconsistent if the AR is negative.
+
+3. The **Rolling Volatility line** shows a moderate slope, while market spike suggests sharper reaction. Please validate with GARCH(1,1) or rolling std.
+
+---
+
+🎯 REQUIRED FIXES:
+
+1. ✅ Recalculate **daily abnormal returns (AR)** using:
+   - CAPM model:  
+     \[
+     AR_t = R_t - (R_f + \beta (R_m - R_f))
+     \]
+   - Use **Rf = 5.1% / 252**, **Beta = 1.0 for S&P 500**,  
+     and get `R_m` (market return) from ^GSPC benchmark.
+
+2. ✅ Ensure you are using **Close** (not `Adj Close`) with `auto_adjust=True` to avoid dividend distortions.
+
+3. ✅ Recalculate **Cumulative AR (CAR)** correctly across the event window (e.g., May 31 – June 3).  
+   CAR should match sum of valid ARs.
+
+4. ✅ Ensure the **event marker and orange vertical line** are properly aligned with the true event date (June 2, 2025) and bar plotted.
+
+5. ✅ Adjust **rolling volatility window** to capture real spike — ideally use a 2-day **rolling standard deviation** (or GARCH as bonus).
+
+6. ✅ Add correct financial interpretation below the chart:
+   > Despite strong U.S.–China rhetoric and AI export restrictions announced on June 2, the S&P 500 closed up +0.4%. This suggests investor optimism or pre-pricing of risk. AR was close to neutral, and volatility rose moderately — consistent with market uncertainty but no panic.
+
+---
+
+🛠️ If you find AR is still negative after recalculation — output a console log:
+- Show `R_t`, `R_f`, `R_m`, `Expected R`, `AR`  
+- Show prices used and which tickers were compared.
+
+---
+
+🎯 GOAL: Accurate, interpretable, and statistically valid event study result for June 2, 2025. This will be used for real educational and policy-facing use case.
+
